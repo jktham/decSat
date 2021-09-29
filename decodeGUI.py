@@ -25,16 +25,6 @@ selectFileLabel.move(220, 10)
 selectFileLabel.resize(600, 40)
 selectFileLabel.show()
 
-processButton = QPushButton("Process file", window)
-processButton.move(10, 550)
-processButton.resize(200, 40)
-processButton.show()
-
-processLabel = QLabel("", window)
-processLabel.move(220, 550)
-processLabel.resize(600, 40)
-processLabel.show()
-
 startLabel = QLabel("Start", window)
 startLabel.move(10, 60)
 startLabel.resize(100, 40)
@@ -78,6 +68,26 @@ resampleFactorSlider.move(10, 210)
 resampleFactorSlider.resize(200, 40)
 resampleFactorSlider.show()
 
+processButton = QPushButton("Process file", window)
+processButton.move(10, 550)
+processButton.resize(200, 40)
+processButton.show()
+
+processLabel = QLabel("", window)
+processLabel.move(220, 550)
+processLabel.resize(600, 40)
+processLabel.show()
+
+saveButton = QPushButton("Save image", window)
+saveButton.move(590, 550)
+saveButton.resize(200, 40)
+saveButton.show()
+
+imageLabel = QLabel("", window)
+imageLabel.move(220, 60)
+imageLabel.resize(1000, 1000)
+imageLabel.show()
+
 
 inputFile = ""
 def selectFile():
@@ -91,7 +101,12 @@ def selectFile():
 resampleFactor = 1
 start = 0
 end = 0
+imageGenerated = False
+
 def decode():
+    global image, imageGenerated
+    imageGenerated = False
+
     if inputFile == "":
         update(processLabel, "No file!")
         return
@@ -117,7 +132,9 @@ def decode():
     image = generateImage(amplitude, sampleRate, averageAmplitude)
 
     update(processLabel, "Done")
-    save(image)
+    display(image)
+
+    imageGenerated = True
     return
 
 def resample(data, sampleRate, resampleFactor):
@@ -172,10 +189,15 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
                 break
     return image
 
-def save(image):
-    path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "JPG file (*.jpg)")
-    if check:
-        plt.imsave(path, image)
+def display(image):
+    imageLabel.setPixmap(QPixmap("output.jpg"))
+    return
+
+def save():
+    if imageGenerated == True:
+        path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "JPG file (*.jpg)")
+        if check:
+            plt.imsave(path, image)
     return
 
 def update(object, str):
@@ -205,6 +227,8 @@ def setEnd(value):
 
 selectFileButton.clicked.connect(selectFile)
 processButton.clicked.connect(decode)
+saveButton.clicked.connect(save)
+
 resampleFactorSlider.valueChanged.connect(setResampleFactor)
 
 startEntry.textChanged.connect(setStart)
