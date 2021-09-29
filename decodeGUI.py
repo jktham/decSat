@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.lib.function_base import average
 import scipy.io.wavfile as wav
+import math
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -108,8 +110,14 @@ def decode():
     update(processLabel, "Generating amplitude envelope")
     amplitude = hilbert(data)
 
+    update(processLabel, "Calculating average amplitude")
+    averageAmplitude = average(amplitude)
+
     update(processLabel, "Generating image")
-    image = generateImage(amplitude, sampleRate)
+    image = generateImage(amplitude, sampleRate, averageAmplitude)
+
+    update(processLabel, "Done")
+    save(image)
     return
 
 def resample(data, sampleRate, resampleFactor):
@@ -128,8 +136,46 @@ def hilbert(data):
     amplitude = np.abs(signal.hilbert(data))
     return amplitude
 
-def generateImage(amplitude, sampleRate):
+def average(amplitude):
+    amplitude_sum = 0
+    for i in range(amplitude.shape[0]):
+        amplitude_sum += amplitude[i]
+    averageAmplitude = int(amplitude_sum / amplitude.shape[0])
+    return averageAmplitude
 
+shift = 0
+brightness = 1
+contrast = 1
+
+def generateImage(amplitude, sampleRate, averageAmplitude):
+    width = int(0.5 * (int(sampleRate / resampleFactor) + shift))
+    height = int(amplitude.shape[0] / width)
+    image = np.zeros((height, width, 3), dtype="uint8")
+    
+    x, y = 0, 0
+    for p in range(amplitude.shape[0]):
+        lum = int((amplitude[p] / (averageAmplitude * 2)) * 255 * brightness)
+        offset = int((amplitude[p] - averageAmplitude) / averageAmplitude * 255)
+        lum = int(lum + offset * math.log(contrast))
+        if lum < 0:
+            lum = 0
+        if lum > 255:
+            lum = 255
+        image[y, x] = (lum, lum, lum)
+        x += 1
+        if x >= width:
+            if y % 100 == 0:
+                update(processLabel, "Generating image (" + str(y) + "/" + str(height) + ") * " + str(x))
+            x = 0
+            y += 1
+            if y >= height:
+                break
+    return image
+
+def save(image):
+    path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "JPG file (*.jpg)")
+    if check:
+        plt.imsave(path, image)
     return
 
 def update(object, str):
@@ -141,18 +187,21 @@ def setResampleFactor(value):
     global resampleFactor
     resampleFactor = value
     update(resampleFactorValueLabel, str(value))
+    return
 
 def setStart(value):
     global start
     if value == "":
         value = 0
     start = int(value)
+    return
 
 def setEnd(value):
     global end
     if value == "":
         value = 0
     end = int(value)
+    return
 
 selectFileButton.clicked.connect(selectFile)
 processButton.clicked.connect(decode)
