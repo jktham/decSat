@@ -1,68 +1,101 @@
-from tkinter import *
-from tkinter import Scale, filedialog, ttk
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
 import numpy as np
 import scipy.io.wavfile as wav
 from matplotlib.pyplot import text
 from scipy import signal
 
-root = Tk()
-root.title("decodeGUI")
-root.geometry("800x600")
 
-mainframe = ttk.Frame(root, padding="10 10 10 10")
-mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
-root.columnconfigure(0, weight=1)
-root.rowconfigure(0, weight=1)
+app = QApplication([])
+window = QWidget()
+
+window.resize(800, 600)
+window.setWindowTitle("decodeGUI")
+window.show()
+
+selectFileButton = QPushButton("Select file", window)
+selectFileButton.move(10, 10)
+selectFileButton.resize(140, 40)
+selectFileButton.show()
+
+selectFileLabel = QLabel("", window)
+selectFileLabel.move(170, 10)
+selectFileLabel.resize(400, 40)
+selectFileLabel.show()
+
+processButton = QPushButton("Process file", window)
+processButton.move(10, 60)
+processButton.resize(140, 40)
+processButton.show()
+
+processLabel = QLabel("", window)
+processLabel.move(170, 60)
+processLabel.resize(400, 40)
+processLabel.show()
 
 
-inputFile = StringVar()
-def loadFile():
-    fd = filedialog.askopenfile(
-        initialdir="C:/Users/Jonas/projects/personal/matura/py/", 
-        title="Select WAV file", 
-        filetypes=[("WAV files", ".wav")]
-        )
-    inputFile.set(fd.name)
+inputFile = ""
+def selectFile():
+    global inputFile
+    inputFile, check = QFileDialog.getOpenFileName(None, "Select File", ".", "WAV files (*.wav)")
+    if check:
+        selectFileLabel.setText(inputFile)
     return
 
-resampleFactor = IntVar()
-resampleFactor.set(1)
-start = IntVar()
-end = IntVar()
+
+resampleFactor = 1
+start = 0
+end = 0
 def decode():
-    sampleRate, data = wav.read(inputFile.get())
-    data = resample(data, sampleRate, resampleFactor.get())
+    if inputFile == "":
+        updateProcessLabel("No file!")
+        return
+    
+    updateProcessLabel("Started processing")
+
+    sampleRate, data = wav.read(inputFile)
+    updateProcessLabel("Loaded file")
+
+    data = resample(data, sampleRate, resampleFactor)
+    updateProcessLabel("Resampled data")
+
     data = crop(data, start, end, sampleRate)
+    updateProcessLabel("Cropped data")
+
     amplitude = hilbert(data)
+    updateProcessLabel("Got amplitude envelope")
+
+    image = drawImage(amplitude, sampleRate)
     return
 
 def resample(data, sampleRate, resampleFactor):
     data = data[::resampleFactor]
     sampleRate = int(sampleRate / resampleFactor)
-    print("resampled data")
     return data
 
 def crop(data, start, end, sampleRate):
-    if start.get() > 0 or end.get() > 0:
-        startSample = int(start.get() * sampleRate)
-        endSample = int(end.get() * sampleRate)
+    if start > 0 or end > 0:
+        startSample = int(start * sampleRate)
+        endSample = int(end * sampleRate)
         data = data[startSample:endSample]
     return data
 
 def hilbert(data):
     amplitude = np.abs(signal.hilbert(data))
-    print("get amplitude envelope")
     return amplitude
 
-ttk.Button(mainframe, text="Load File", command=loadFile).grid(column=0, row=0, sticky=W)
-ttk.Label(mainframe, textvariable=inputFile).grid(column=1, row=0, sticky=W)
+def drawImage(amplitude, sampleRate):
 
-ttk.Button(mainframe, text="Decode File", command=decode).grid(column=0, row=1, sticky=W)
+    return
 
-ttk.Spinbox(mainframe, from_=0, to=9999, textvariable=start).grid(column=0, row=2, sticky=W)
-ttk.Spinbox(mainframe, from_=0, to=9999, textvariable=end).grid(column=0, row=3, sticky=W)
+def updateProcessLabel(str):
+    processLabel.setText(str)
+    return
 
-Scale(mainframe, variable=resampleFactor, from_=1, to=16, resolution=1, orient=HORIZONTAL).grid(column=0, row=4, sticky=W)
+selectFileButton.clicked.connect(selectFile)
+processButton.clicked.connect(decode)
 
-root.mainloop()
+app.exec()
+ 
