@@ -31,7 +31,7 @@ startLabel.move(10, 60)
 startLabel.resize(100, 40)
 startLabel.show()
 
-startEntry = QLineEdit("", window)
+startEntry = QLineEdit("0", window)
 startEntry.setValidator(QDoubleValidator())
 startEntry.setAlignment(Qt.AlignRight)
 startEntry.move(130, 60)
@@ -43,7 +43,7 @@ endLabel.move(10, 110)
 endLabel.resize(100, 40)
 endLabel.show()
 
-endEntry = QLineEdit("", window)
+endEntry = QLineEdit("0", window)
 endEntry.setValidator(QDoubleValidator())
 endEntry.setAlignment(Qt.AlignRight)
 endEntry.move(130, 110)
@@ -163,7 +163,7 @@ def decode():
     update(processLabel, "Generating image")
     image = generateImage(amplitude, sampleRate, averageAmplitude)
 
-    update(processLabel, "Done (" + str(round(time.time() - timeStart, 2)) + "s)")
+    update(processLabel, "Done (" + str(image.shape[1]) + "x" + str(image.shape[0]) + ", " + str(round(time.time() - timeStart, 2)) + "s)")
     display(image)
 
     imageGenerated = True
@@ -181,7 +181,7 @@ def resample(data, sampleRate, resampleFactor):
     return data, sampleRate
 
 def crop(data, start, end, sampleRate):
-    if start > 0 or end > 0:
+    if end > start and (start > 0 or end > 0):
         startSample = int(start * sampleRate)
         endSample = int(end * sampleRate)
         data = data[startSample:endSample]
@@ -199,7 +199,7 @@ def getAverageAmplitude(amplitude):
     return averageAmplitude
 
 def generateImage(amplitude, sampleRate, averageAmplitude):
-    width = int(0.5 * (int(sampleRate / resampleFactor) + shift))
+    width = int(0.5 * int(sampleRate + shift))
     height = int(amplitude.shape[0] / width)
     image = np.zeros((height, width, 3), dtype="uint8")
     
@@ -244,42 +244,42 @@ def update(object, str):
 
 def setStart(value):
     global start
-    if value == "":
+    if value == "" or value == ".":
         value = 0
     start = float(value)
     return
 
 def setEnd(value):
     global end
-    if value == "":
+    if value == "" or value == ".":
         value = 0
     end = float(value)
     return
 
 def setResampleFactor(value):
     global resampleFactor
-    if value == "":
+    if value == "" or value == "-":
         value = 1
     resampleFactor = int(value)
     return
 
 def setShift(value):
     global shift
-    if value == "":
+    if value == "" or value == "-":
         value = 0
-    shift = float(value)
+    shift = int(value)
     return
 
 def setBrightness(value):
     global brightness
-    if value == "":
+    if value == "" or value == ".":
         value = 1
     brightness = float(value)
     return
 
 def setContrast(value):
     global contrast
-    if value == "":
+    if value == "" or value == ".":
         value = 1
     contrast = float(value)
     return
