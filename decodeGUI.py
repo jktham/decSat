@@ -8,6 +8,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
+from skimage import color
 
 app = QApplication([])
 window = QWidget()
@@ -108,6 +109,31 @@ processLabel.move(220, 1050)
 processLabel.resize(600, 40)
 processLabel.show()
 
+clearButton = QPushButton("Clear image", window)
+clearButton.move(1590, 10)
+clearButton.resize(200, 40)
+clearButton.show()
+
+plotWavButton = QPushButton("Plot wav", window)
+plotWavButton.move(1590, 60)
+plotWavButton.resize(200, 40)
+plotWavButton.show()
+
+plotImageButton = QPushButton("Plot image", window)
+plotImageButton.move(1590, 110)
+plotImageButton.resize(200, 40)
+plotImageButton.show()
+
+plotWavFourierButton = QPushButton("Plot wav fourier", window)
+plotWavFourierButton.move(1590, 160)
+plotWavFourierButton.resize(200, 40)
+plotWavFourierButton.show()
+
+plotImageFourierButton = QPushButton("Plot image fourier", window)
+plotImageFourierButton.move(1590, 210)
+plotImageFourierButton.resize(200, 40)
+plotImageFourierButton.show()
+
 saveButton = QPushButton("Save image", window)
 saveButton.move(1590, 1050)
 saveButton.resize(200, 40)
@@ -134,11 +160,11 @@ resampleFactor = 1
 shift = 0
 brightness = 1
 contrast = 1
-imageGenerated = False
+processingDone = False
 
 def decode():
-    global image, imageGenerated
-    imageGenerated = False
+    global data, originalSampleRate, sampleRate, amplitude, averageAmplitude, image, processingDone
+    processingDone = False
     timeStart = time.time()
 
     if inputFile == "":
@@ -146,10 +172,10 @@ def decode():
         return
 
     update(processLabel, "Loading file")
-    sampleRate, data = wav.read(inputFile)
+    originalSampleRate, data = wav.read(inputFile)
 
     update(processLabel, "Resampling data")
-    data, sampleRate = resample(data, sampleRate, resampleFactor)
+    data, sampleRate = resample(data, originalSampleRate, resampleFactor)
 
     update(processLabel, "Cropping data")
     data = crop(data, start, end, sampleRate)
@@ -166,7 +192,7 @@ def decode():
     update(processLabel, "Done (" + str(image.shape[1]) + "x" + str(image.shape[0]) + ", " + str(round(time.time() - timeStart, 2)) + "s)")
     display(image)
 
-    imageGenerated = True
+    processingDone = True
     return
 
 def resample(data, sampleRate, resampleFactor):
@@ -215,7 +241,7 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
         image[y, x] = (lum, lum, lum)
         x += 1
         if x >= width:
-            if y % 100 == 0:
+            if y % 10 == 0:
                 update(processLabel, "Generating image (" + str(y) + "/" + str(height) + ") * " + str(x))
             x = 0
             y += 1
@@ -231,10 +257,18 @@ def display(image):
     return
 
 def save():
-    if imageGenerated == True:
+    if processingDone:
         path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "JPG file (*.jpg)")
         if check:
             plt.imsave(path, image)
+    return
+
+def clear():
+    global processingDone, image
+    if processingDone:
+        processingDone = False
+        imageLabel.setPixmap(QPixmap())
+        processLabel.setText("")
     return
 
 def update(object, str):
@@ -284,9 +318,71 @@ def setContrast(value):
     contrast = float(value)
     return
 
+def plotImage():
+    if processingDone:
+        plt.ion()
+        plt.figure(2, figsize=(24, 16))
+        plt.imshow(image, aspect=image.shape[1] / image.shape[0] * 0.8)
+        plt.title(
+            inputFile + ", " + 
+            str(originalSampleRate) + "Hz, (" + 
+            str(sampleRate) + "), " + 
+            str(start) + "-" + 
+            str(end) + "s, " + 
+            str(image.shape[1]) + "x" + 
+            str(image.shape[0]) + ", " + 
+            str(brightness) + ", " + 
+            str(contrast)
+        )
+        plt.show()
+    return
+
+def plotWav():
+    if processingDone:
+        plt.ion()
+        plt.figure(0, figsize=(24, 8))
+        plt.plot(data)
+        plt.plot(amplitude)
+        plt.axhline(y=averageAmplitude, color='r', linestyle='-')
+        plt.xlabel("Sample")
+        plt.ylabel("Amplitude")
+        plt.title(
+            inputFile + ", " + 
+            str(originalSampleRate) + "Hz, (" + 
+            str(sampleRate) + "), " + 
+            str(start) + "-" + 
+            str(end) + "s"
+        )
+        plt.show()
+    return
+
+def plotImageFourier():
+    if processingDone:
+        plt.ion()
+        plt.figure(3, figsize=(8, 8))
+        image_fourier = np.fft.fftshift(np.fft.fft2(color.rgb2gray(image)))
+        plt.imshow(np.log(abs(image_fourier)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+        plt.title("Image fourier")
+        plt.show()
+    return
+
+def plotWavFourier():
+    if processingDone:
+        plt.ion()
+        plt.figure(1, figsize=(8, 8))
+        plt.plot(np.real(np.fft.fftshift(np.fft.fft(data))))
+        plt.title("Wav fourier")
+        plt.show()
+    return
+
 selectFileButton.clicked.connect(selectFile)
 processButton.clicked.connect(decode)
 saveButton.clicked.connect(save)
+clearButton.clicked.connect(clear)
+plotImageButton.clicked.connect(plotImage)
+plotWavButton.clicked.connect(plotWav)
+plotImageFourierButton.clicked.connect(plotImageFourier)
+plotWavFourierButton.clicked.connect(plotWavFourier)
 
 startEntry.textChanged.connect(setStart)
 endEntry.textChanged.connect(setEnd)
@@ -295,5 +391,5 @@ shiftEntry.textChanged.connect(setShift)
 brightnessEntry.textChanged.connect(setBrightness)
 contrastEntry.textChanged.connect(setContrast)
 
-app.exec()
+app.exec_()
  
