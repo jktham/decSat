@@ -51,53 +51,86 @@ endEntry.move(130, 110)
 endEntry.resize(80, 40)
 endEntry.show()
 
-resampleFactorLabel = QLabel("Resample", window)
-resampleFactorLabel.move(10, 160)
-resampleFactorLabel.resize(120, 40)
-resampleFactorLabel.show()
-
-resampleFactorEntry = QLineEdit("1", window)
-resampleFactorEntry.setValidator(QIntValidator())
-resampleFactorEntry.setAlignment(Qt.AlignRight)
-resampleFactorEntry.move(130, 160)
-resampleFactorEntry.resize(80, 40)
-resampleFactorEntry.show()
-
 shiftLabel = QLabel("Shift", window)
-shiftLabel.move(10, 210)
+shiftLabel.move(10, 160)
 shiftLabel.resize(100, 40)
 shiftLabel.show()
 
 shiftEntry = QLineEdit("0", window)
 shiftEntry.setValidator(QIntValidator())
 shiftEntry.setAlignment(Qt.AlignRight)
-shiftEntry.move(130, 210)
+shiftEntry.move(130, 160)
 shiftEntry.resize(80, 40)
 shiftEntry.show()
 
+resampleFactorLabel = QLabel("Resample", window)
+resampleFactorLabel.move(10, 210)
+resampleFactorLabel.resize(120, 40)
+resampleFactorLabel.show()
+
+resampleFactorEntry = QLineEdit("1", window)
+resampleFactorEntry.setValidator(QIntValidator())
+resampleFactorEntry.setAlignment(Qt.AlignRight)
+resampleFactorEntry.move(130, 210)
+resampleFactorEntry.resize(80, 40)
+resampleFactorEntry.show()
+
+resampleFactorSlider = QSlider(window)
+resampleFactorSlider.setOrientation(Qt.Orientation.Horizontal)
+resampleFactorSlider.setTickInterval(1)
+resampleFactorSlider.setTickPosition(3)
+resampleFactorSlider.setValue(0)
+resampleFactorSlider.setMinimum(0)
+resampleFactorSlider.setMaximum(4)
+resampleFactorSlider.move(10, 260)
+resampleFactorSlider.resize(200, 40)
+resampleFactorSlider.show()
+
 brightnessLabel = QLabel("Brightness", window)
-brightnessLabel.move(10, 260)
+brightnessLabel.move(10, 310)
 brightnessLabel.resize(100, 40)
 brightnessLabel.show()
 
-brightnessEntry = QLineEdit("1", window)
+brightnessEntry = QLineEdit("1.0", window)
 brightnessEntry.setValidator(QDoubleValidator())
 brightnessEntry.setAlignment(Qt.AlignRight)
-brightnessEntry.move(130, 260)
+brightnessEntry.move(130, 310)
 brightnessEntry.resize(80, 40)
 brightnessEntry.show()
 
+brightnessSlider = QSlider(window)
+brightnessSlider.setOrientation(Qt.Orientation.Horizontal)
+brightnessSlider.setTickInterval(1)
+brightnessSlider.setTickPosition(3)
+brightnessSlider.setValue(10)
+brightnessSlider.setMinimum(5)
+brightnessSlider.setMaximum(15)
+brightnessSlider.move(10, 360)
+brightnessSlider.resize(200, 40)
+brightnessSlider.show()
+
 contrastLabel = QLabel("Contrast", window)
-contrastLabel.move(10, 310)
+contrastLabel.move(10, 410)
 contrastLabel.resize(100, 40)
 contrastLabel.show()
 
-contrastEntry = QLineEdit("1", window)
+contrastEntry = QLineEdit("1.0", window)
 contrastEntry.setValidator(QDoubleValidator())
 contrastEntry.setAlignment(Qt.AlignRight)
-contrastEntry.move(130, 310)
+contrastEntry.move(130, 410)
 contrastEntry.resize(80, 40)
 contrastEntry.show()
+
+contrastSlider = QSlider(window)
+contrastSlider.setOrientation(Qt.Orientation.Horizontal)
+contrastSlider.setTickInterval(1)
+contrastSlider.setTickPosition(3)
+contrastSlider.setValue(10)
+contrastSlider.setMinimum(5)
+contrastSlider.setMaximum(15)
+contrastSlider.move(10, 460)
+contrastSlider.resize(200, 40)
+contrastSlider.show()
 
 processButton = QPushButton("Process file", window)
 processButton.move(10, 1050)
@@ -315,23 +348,16 @@ def update(object, str):
 
 def setStart(value):
     global start
-    if value == "" or value == ".":
+    if value == "" or value == "." or value == "-":
         value = 0
     start = float(value)
     return
 
 def setEnd(value):
     global end
-    if value == "" or value == ".":
+    if value == "" or value == "." or value == "-":
         value = 0
     end = float(value)
-    return
-
-def setResampleFactor(value):
-    global resampleFactor
-    if value == "" or value == "-":
-        value = 1
-    resampleFactor = int(value)
     return
 
 def setShift(value):
@@ -341,23 +367,48 @@ def setShift(value):
     shift = int(value)
     return
 
+def setResampleFactor(value):
+    global resampleFactor
+    if value == "" or value == "-":
+        value = 1
+    resampleFactor = int(value)
+    return
+
+def setResampleFactorSlider(value):
+    global resampleFactor
+    resampleFactor = 2 ** int(value)
+    resampleFactorEntry.setText(str(2 ** int(value)))
+    return
+
 def setBrightness(value):
     global brightness
-    if value == "" or value == ".":
+    if value == "" or value == "." or value == "-":
         value = 1
     brightness = float(value)
     return
 
+def setBrightnessSlider(value):
+    global brightness
+    brightness = float(value/1000)
+    brightnessEntry.setText(str(int(value)/10))
+    return
+
 def setContrast(value):
     global contrast
-    if value == "" or value == ".":
+    if value == "" or value == "." or value == "-":
         value = 1
     contrast = float(value)
     return
 
+def setContrastSlider(value):
+    global contrast
+    contrast = float(int(value)/1000)
+    contrastEntry.setText(str(int(value)/10))
+    return
+
 def setAspectRatio(value):
     global aspectRatio
-    if value == "" or value == ".":
+    if value == "" or value == "." or value == "-":
         value = 1
     aspectRatio = float(value)
     return
@@ -430,11 +481,14 @@ plotWavFourierButton.clicked.connect(plotWavFourier)
 
 startEntry.textChanged.connect(setStart)
 endEntry.textChanged.connect(setEnd)
-resampleFactorEntry.textChanged.connect(setResampleFactor)
 shiftEntry.textChanged.connect(setShift)
+resampleFactorEntry.textChanged.connect(setResampleFactor)
 brightnessEntry.textChanged.connect(setBrightness)
 contrastEntry.textChanged.connect(setContrast)
 aspectRatioEntry.textChanged.connect(setAspectRatio)
 
+brightnessSlider.valueChanged.connect(setBrightnessSlider)
+contrastSlider.valueChanged.connect(setContrastSlider)
+resampleFactorSlider.valueChanged.connect(setResampleFactorSlider)
+
 app.exec_()
- 
