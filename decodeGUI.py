@@ -189,6 +189,9 @@ def decode():
     update(processLabel, "Generating image")
     image = generateImage(amplitude, sampleRate, averageAmplitude)
 
+    update(processLabel, "Filtering image")
+    image = filter(image)
+
     update(processLabel, "Done (" + str(image.shape[1]) + "x" + str(image.shape[0]) + ", " + str(round(time.time() - timeStart, 2)) + "s)")
     display(image)
 
@@ -212,6 +215,14 @@ def crop(data, start, end, sampleRate):
         endSample = int(end * sampleRate)
         data = data[startSample:endSample]
     return data
+
+def filter(image):
+    # imageFourier = np.fft.fftshift(np.fft.fft2(color.rgb2gray(image)))
+    # for i in range(imageFourier.shape[0]):
+    #     if i > 4000000:
+    #         imageFourier[i] = 1+1j
+    # image = color.gray2rgb(np.real(np.fft.ifft2(np.fft.ifftshift(imageFourier))))
+    return image
 
 def hilbert(data):
     amplitude = np.abs(signal.hilbert(data))
