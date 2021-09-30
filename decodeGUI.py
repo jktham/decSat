@@ -132,6 +132,17 @@ contrastSlider.move(10, 460)
 contrastSlider.resize(200, 40)
 contrastSlider.show()
 
+filterLabel = QLabel("Filter", window)
+filterLabel.move(10, 510)
+filterLabel.resize(100, 40)
+filterLabel.show()
+
+filterCheckbox = QCheckBox(window)
+filterCheckbox.setChecked(True)
+filterCheckbox.move(160, 510)
+filterCheckbox.resize(40, 40)
+filterCheckbox.show()
+
 processButton = QPushButton("Process file", window)
 processButton.move(10, 1050)
 processButton.resize(200, 40)
@@ -162,10 +173,15 @@ plotWavFourierButton.move(1590, 160)
 plotWavFourierButton.resize(200, 40)
 plotWavFourierButton.show()
 
-plotImageFourierButton = QPushButton("Plot image fourier", window)
-plotImageFourierButton.move(1590, 210)
-plotImageFourierButton.resize(200, 40)
-plotImageFourierButton.show()
+plotImageFourierPreButton = QPushButton("Plot image fourier (pre)", window)
+plotImageFourierPreButton.move(1590, 210)
+plotImageFourierPreButton.resize(200, 40)
+plotImageFourierPreButton.show()
+
+plotImageFourierPostButton = QPushButton("Plot image fourier (post)", window)
+plotImageFourierPostButton.move(1590, 260)
+plotImageFourierPostButton.resize(200, 40)
+plotImageFourierPostButton.show()
 
 saveButton = QPushButton("Save image", window)
 saveButton.move(1590, 1050)
@@ -252,12 +268,6 @@ def selectFile():
     return
 
 def resample(data, sampleRate, resampleFactor):
-    # for i in range(len(data)):
-    #     if i % resampleFactor+1 == 0:
-    #         for j in range(resampleFactor):
-    #             data[i] += data[i+j]
-    #         data[i] /= resampleFactor
-            
     data = data[::resampleFactor]
     sampleRate = int(sampleRate / resampleFactor)
     return data, sampleRate
@@ -270,11 +280,17 @@ def crop(data, start, end, sampleRate):
     return data
 
 def filter(image):
-    # imageFourier = np.fft.fftshift(np.fft.fft2(color.rgb2gray(image)))
-    # for i in range(imageFourier.shape[0]):
-    #     if i > 4000000:
-    #         imageFourier[i] = 1+1j
-    # image = color.gray2rgb(np.real(np.fft.ifft2(np.fft.ifftshift(imageFourier))))
+    global imageFourierPre
+    if filterCheckbox.isChecked():
+        for c in range(image.shape[2]):
+            imageFourierPre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+            for i in range(imageFourierPre.shape[0]):
+                for j in range(imageFourierPre.shape[1]):
+                    if 1250 < j < 1750:
+                        imageFourierPre[i, j] = 1
+                    if 3750 < j < 4250:
+                        imageFourierPre[i, j] = 1
+            image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(imageFourierPre)))
     return image
 
 def hilbert(data):
@@ -324,7 +340,7 @@ def display(image):
 def save():
     global image
     if processingDone:
-        path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "JPG file (*.jpg)")
+        path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "PNGfile (*.png)")
         if check:
             if aspectRatioCheckbox.isChecked():
                 aspectRatioImage = transform.resize(image, (height, int(height * aspectRatio)))
@@ -451,12 +467,25 @@ def plotWav():
         plt.show()
     return
 
-def plotImageFourier():
+def plotImageFourierPre():
+    global imageFourierPre
+    if processingDone:
+        if filterCheckbox.isChecked():
+            plt.ion()
+            plt.figure(3, figsize=(8, 8))
+            for c in range(image.shape[2]):
+                plt.imshow(np.log(abs(imageFourierPre)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+            plt.title("Image fourier")
+            plt.show()
+    return
+
+def plotImageFourierPost():
     if processingDone:
         plt.ion()
         plt.figure(3, figsize=(8, 8))
-        image_fourier = np.fft.fftshift(np.fft.fft2(color.rgb2gray(image)))
-        plt.imshow(np.log(abs(image_fourier)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+        for c in range(image.shape[2]):
+            imageFourierPost = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+            plt.imshow(np.log(abs(imageFourierPost)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
         plt.title("Image fourier")
         plt.show()
     return
@@ -476,7 +505,8 @@ saveButton.clicked.connect(save)
 clearButton.clicked.connect(clear)
 plotImageButton.clicked.connect(plotImage)
 plotWavButton.clicked.connect(plotWav)
-plotImageFourierButton.clicked.connect(plotImageFourier)
+plotImageFourierPreButton.clicked.connect(plotImageFourierPre)
+plotImageFourierPostButton.clicked.connect(plotImageFourierPost)
 plotWavFourierButton.clicked.connect(plotWavFourier)
 
 startEntry.textChanged.connect(setStart)
