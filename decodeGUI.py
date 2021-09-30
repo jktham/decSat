@@ -8,7 +8,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
-from skimage import color
+from skimage import color, transform
 
 app = QApplication([])
 window = QWidget()
@@ -139,19 +139,28 @@ saveButton.move(1590, 1050)
 saveButton.resize(200, 40)
 saveButton.show()
 
-imageLabel = QLabel("", window)
-imageLabel.move(220, 60)
-imageLabel.resize(1360, 980)
-imageLabel.show()
+imageDisplayLabel = QLabel("", window)
+imageDisplayLabel.move(220, 60)
+imageDisplayLabel.resize(1360, 980)
+imageDisplayLabel.show()
 
+aspectRatioCheckbox = QCheckBox(window)
+aspectRatioCheckbox.setChecked(True)
+aspectRatioCheckbox.move(1590, 1000)
+aspectRatioCheckbox.resize(40, 40)
+aspectRatioCheckbox.show()
 
-inputFile = ""
-def selectFile():
-    global inputFile
-    inputFile, check = QFileDialog.getOpenFileName(None, "Select File", ".", "WAV files (*.wav)")
-    if check:
-        selectFileLabel.setText(inputFile)
-    return
+aspectRatioEntryLabel = QLabel("Aspect ratio", window)
+aspectRatioEntryLabel.move(1620, 1000)
+aspectRatioEntryLabel.resize(200, 40)
+aspectRatioEntryLabel.show()
+
+aspectRatioEntry = QLineEdit("1.4", window)
+aspectRatioEntry.setValidator(QDoubleValidator())
+aspectRatioEntry.setAlignment(Qt.AlignRight)
+aspectRatioEntry.move(1730, 1000)
+aspectRatioEntry.resize(60, 40)
+aspectRatioEntry.show()
 
 
 start = 0
@@ -161,6 +170,8 @@ shift = 0
 brightness = 1
 contrast = 1
 processingDone = False
+inputFile = ""
+aspectRatio = 1.4
 
 def decode():
     global data, originalSampleRate, sampleRate, amplitude, averageAmplitude, image, processingDone
@@ -196,6 +207,15 @@ def decode():
     display(image)
 
     processingDone = True
+    return
+
+def selectFile():
+    global inputFile
+    inputFile, check = QFileDialog.getOpenFileName(None, "Select File", ".", "WAV files (*.wav)")
+    if check:
+        update(selectFileLabel, inputFile)
+    else:
+        update(selectFileLabel, "")
     return
 
 def resample(data, sampleRate, resampleFactor):
@@ -236,6 +256,7 @@ def getAverageAmplitude(amplitude):
     return averageAmplitude
 
 def generateImage(amplitude, sampleRate, averageAmplitude):
+    global width, height
     width = int(0.5 * int(sampleRate + shift))
     height = int(amplitude.shape[0] / width)
     image = np.zeros((height, width, 3), dtype="uint8")
@@ -263,22 +284,27 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
 def display(image):
     h, w, _ = image.shape
     displayImage = QImage(image.data, w, h, 3 * w, QImage.Format_RGB888)
-    displayPixMap = QPixmap(displayImage).scaled(imageLabel.size(), transformMode=Qt.TransformationMode.SmoothTransformation)
-    imageLabel.setPixmap(displayPixMap)
+    displayPixMap = QPixmap(displayImage).scaled(imageDisplayLabel.size(), transformMode=Qt.TransformationMode.SmoothTransformation)
+    imageDisplayLabel.setPixmap(displayPixMap)
     return
 
 def save():
+    global image
     if processingDone:
         path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "JPG file (*.jpg)")
         if check:
-            plt.imsave(path, image)
+            if aspectRatioCheckbox.isChecked():
+                aspectRatioImage = transform.resize(image, (height, int(height * aspectRatio)))
+                plt.imsave(path, aspectRatioImage)
+            else:
+                plt.imsave(path, image)
     return
 
 def clear():
     global processingDone, image
     if processingDone:
         processingDone = False
-        imageLabel.setPixmap(QPixmap())
+        imageDisplayLabel.setPixmap(QPixmap())
         processLabel.setText("")
     return
 
@@ -327,6 +353,13 @@ def setContrast(value):
     if value == "" or value == ".":
         value = 1
     contrast = float(value)
+    return
+
+def setAspectRatio(value):
+    global aspectRatio
+    if value == "" or value == ".":
+        value = 1
+    aspectRatio = float(value)
     return
 
 def plotImage():
@@ -401,6 +434,7 @@ resampleFactorEntry.textChanged.connect(setResampleFactor)
 shiftEntry.textChanged.connect(setShift)
 brightnessEntry.textChanged.connect(setBrightness)
 contrastEntry.textChanged.connect(setContrast)
+aspectRatioEntry.textChanged.connect(setAspectRatio)
 
 app.exec_()
  
