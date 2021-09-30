@@ -132,14 +132,14 @@ contrastSlider.move(10, 460)
 contrastSlider.resize(200, 40)
 contrastSlider.show()
 
-filterLabel = QLabel("Filter", window)
+filterLabel = QLabel("Fourier filter", window)
 filterLabel.move(10, 510)
 filterLabel.resize(100, 40)
 filterLabel.show()
 
 filterCheckbox = QCheckBox(window)
 filterCheckbox.setChecked(True)
-filterCheckbox.move(160, 510)
+filterCheckbox.move(180, 510)
 filterCheckbox.resize(40, 40)
 filterCheckbox.show()
 
@@ -219,12 +219,14 @@ shift = 0
 brightness = 1
 contrast = 1
 processingDone = False
+filtered = False
 inputFile = ""
 aspectRatio = 1.4
 
 def decode():
-    global data, originalSampleRate, sampleRate, amplitude, averageAmplitude, image, processingDone
+    global data, originalSampleRate, sampleRate, amplitude, averageAmplitude, image, processingDone, filtered
     processingDone = False
+    filtered = False
     timeStart = time.time()
 
     if inputFile == "":
@@ -280,17 +282,18 @@ def crop(data, start, end, sampleRate):
     return data
 
 def filter(image):
-    global imageFourierPre
+    global filtered, imageFourierPre
     if filterCheckbox.isChecked():
         for c in range(image.shape[2]):
             imageFourierPre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
             for i in range(imageFourierPre.shape[0]):
                 for j in range(imageFourierPre.shape[1]):
-                    if 1250 < j < 1750:
+                    if 1500 < j < 1600:
                         imageFourierPre[i, j] = 1
-                    if 3750 < j < 4250:
+                    if 3900 < j < 4000:
                         imageFourierPre[i, j] = 1
             image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(imageFourierPre)))
+        filtered = True
     return image
 
 def hilbert(data):
@@ -470,7 +473,7 @@ def plotWav():
 def plotImageFourierPre():
     global imageFourierPre
     if processingDone:
-        if filterCheckbox.isChecked():
+        if filtered:
             plt.ion()
             plt.figure(3, figsize=(8, 8))
             for c in range(image.shape[2]):
