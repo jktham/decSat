@@ -3,6 +3,7 @@ import numpy as np
 from numpy.lib.function_base import average
 import scipy.io.wavfile as wav
 import math
+import time
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -11,7 +12,7 @@ from scipy import signal
 app = QApplication([])
 window = QWidget()
 
-window.resize(800, 600)
+window.resize(1800, 1100)
 window.setWindowTitle("decodeGUI")
 window.show()
 
@@ -31,7 +32,7 @@ startLabel.resize(100, 40)
 startLabel.show()
 
 startEntry = QLineEdit("", window)
-startEntry.setValidator(QIntValidator())
+startEntry.setValidator(QDoubleValidator())
 startEntry.setAlignment(Qt.AlignRight)
 startEntry.move(130, 60)
 startEntry.resize(80, 40)
@@ -43,7 +44,7 @@ endLabel.resize(100, 40)
 endLabel.show()
 
 endEntry = QLineEdit("", window)
-endEntry.setValidator(QIntValidator())
+endEntry.setValidator(QDoubleValidator())
 endEntry.setAlignment(Qt.AlignRight)
 endEntry.move(130, 110)
 endEntry.resize(80, 40)
@@ -51,41 +52,70 @@ endEntry.show()
 
 resampleFactorLabel = QLabel("Resample", window)
 resampleFactorLabel.move(10, 160)
-resampleFactorLabel.resize(100, 40)
+resampleFactorLabel.resize(120, 40)
 resampleFactorLabel.show()
 
-resampleFactorValueLabel = QLabel("1", window)
-resampleFactorValueLabel.move(180, 160)
-resampleFactorValueLabel.resize(40, 40)
-resampleFactorValueLabel.show()
+resampleFactorEntry = QLineEdit("1", window)
+resampleFactorEntry.setValidator(QIntValidator())
+resampleFactorEntry.setAlignment(Qt.AlignRight)
+resampleFactorEntry.move(130, 160)
+resampleFactorEntry.resize(80, 40)
+resampleFactorEntry.show()
 
-resampleFactorSlider = QSlider(Qt.Orientation.Horizontal, window)
-resampleFactorSlider.setMinimum(1)
-resampleFactorSlider.setMaximum(16)
-resampleFactorSlider.setTickInterval(1)
-resampleFactorSlider.setTickPosition(1)
-resampleFactorSlider.move(10, 210)
-resampleFactorSlider.resize(200, 40)
-resampleFactorSlider.show()
+shiftLabel = QLabel("Shift", window)
+shiftLabel.move(10, 210)
+shiftLabel.resize(100, 40)
+shiftLabel.show()
+
+shiftEntry = QLineEdit("0", window)
+shiftEntry.setValidator(QIntValidator())
+shiftEntry.setAlignment(Qt.AlignRight)
+shiftEntry.move(130, 210)
+shiftEntry.resize(80, 40)
+shiftEntry.show()
+
+brightnessLabel = QLabel("Brightness", window)
+brightnessLabel.move(10, 260)
+brightnessLabel.resize(100, 40)
+brightnessLabel.show()
+
+brightnessEntry = QLineEdit("1", window)
+brightnessEntry.setValidator(QDoubleValidator())
+brightnessEntry.setAlignment(Qt.AlignRight)
+brightnessEntry.move(130, 260)
+brightnessEntry.resize(80, 40)
+brightnessEntry.show()
+
+contrastLabel = QLabel("Contrast", window)
+contrastLabel.move(10, 310)
+contrastLabel.resize(100, 40)
+contrastLabel.show()
+
+contrastEntry = QLineEdit("1", window)
+contrastEntry.setValidator(QDoubleValidator())
+contrastEntry.setAlignment(Qt.AlignRight)
+contrastEntry.move(130, 310)
+contrastEntry.resize(80, 40)
+contrastEntry.show()
 
 processButton = QPushButton("Process file", window)
-processButton.move(10, 550)
+processButton.move(10, 1050)
 processButton.resize(200, 40)
 processButton.show()
 
 processLabel = QLabel("", window)
-processLabel.move(220, 550)
+processLabel.move(220, 1050)
 processLabel.resize(600, 40)
 processLabel.show()
 
 saveButton = QPushButton("Save image", window)
-saveButton.move(590, 550)
+saveButton.move(1590, 1050)
 saveButton.resize(200, 40)
 saveButton.show()
 
 imageLabel = QLabel("", window)
 imageLabel.move(220, 60)
-imageLabel.resize(1000, 1000)
+imageLabel.resize(1360, 980)
 imageLabel.show()
 
 
@@ -98,26 +128,28 @@ def selectFile():
     return
 
 
-resampleFactor = 1
 start = 0
 end = 0
+resampleFactor = 1
+shift = 0
+brightness = 1
+contrast = 1
 imageGenerated = False
 
 def decode():
     global image, imageGenerated
     imageGenerated = False
+    timeStart = time.time()
 
     if inputFile == "":
         update(processLabel, "No file!")
         return
-    
-    update(processLabel, "Start processing")
 
     update(processLabel, "Loading file")
     sampleRate, data = wav.read(inputFile)
 
     update(processLabel, "Resampling data")
-    data = resample(data, sampleRate, resampleFactor)
+    data, sampleRate = resample(data, sampleRate, resampleFactor)
 
     update(processLabel, "Cropping data")
     data = crop(data, start, end, sampleRate)
@@ -126,21 +158,27 @@ def decode():
     amplitude = hilbert(data)
 
     update(processLabel, "Calculating average amplitude")
-    averageAmplitude = average(amplitude)
+    averageAmplitude = getAverageAmplitude(amplitude)
 
     update(processLabel, "Generating image")
     image = generateImage(amplitude, sampleRate, averageAmplitude)
 
-    update(processLabel, "Done")
+    update(processLabel, "Done (" + str(round(time.time() - timeStart, 2)) + "s)")
     display(image)
 
     imageGenerated = True
     return
 
 def resample(data, sampleRate, resampleFactor):
+    # for i in range(len(data)):
+    #     if i % resampleFactor+1 == 0:
+    #         for j in range(resampleFactor):
+    #             data[i] += data[i+j]
+    #         data[i] /= resampleFactor
+            
     data = data[::resampleFactor]
     sampleRate = int(sampleRate / resampleFactor)
-    return data
+    return data, sampleRate
 
 def crop(data, start, end, sampleRate):
     if start > 0 or end > 0:
@@ -153,16 +191,12 @@ def hilbert(data):
     amplitude = np.abs(signal.hilbert(data))
     return amplitude
 
-def average(amplitude):
+def getAverageAmplitude(amplitude):
     amplitude_sum = 0
     for i in range(amplitude.shape[0]):
         amplitude_sum += amplitude[i]
-    averageAmplitude = int(amplitude_sum / amplitude.shape[0])
+    averageAmplitude = float(amplitude_sum / amplitude.shape[0])
     return averageAmplitude
-
-shift = 0
-brightness = 1
-contrast = 1
 
 def generateImage(amplitude, sampleRate, averageAmplitude):
     width = int(0.5 * (int(sampleRate / resampleFactor) + shift))
@@ -190,7 +224,10 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
     return image
 
 def display(image):
-    imageLabel.setPixmap(QPixmap("output.jpg"))
+    h, w, _ = image.shape
+    displayImage = QImage(image.data, w, h, 3 * w, QImage.Format_RGB888)
+    displayPixMap = QPixmap(displayImage).scaled(imageLabel.size(), transformMode=Qt.TransformationMode.SmoothTransformation)
+    imageLabel.setPixmap(displayPixMap)
     return
 
 def save():
@@ -205,34 +242,58 @@ def update(object, str):
     app.processEvents()
     return
 
-def setResampleFactor(value):
-    global resampleFactor
-    resampleFactor = value
-    update(resampleFactorValueLabel, str(value))
-    return
-
 def setStart(value):
     global start
     if value == "":
         value = 0
-    start = int(value)
+    start = float(value)
     return
 
 def setEnd(value):
     global end
     if value == "":
         value = 0
-    end = int(value)
+    end = float(value)
+    return
+
+def setResampleFactor(value):
+    global resampleFactor
+    if value == "":
+        value = 1
+    resampleFactor = int(value)
+    return
+
+def setShift(value):
+    global shift
+    if value == "":
+        value = 0
+    shift = float(value)
+    return
+
+def setBrightness(value):
+    global brightness
+    if value == "":
+        value = 1
+    brightness = float(value)
+    return
+
+def setContrast(value):
+    global contrast
+    if value == "":
+        value = 1
+    contrast = float(value)
     return
 
 selectFileButton.clicked.connect(selectFile)
 processButton.clicked.connect(decode)
 saveButton.clicked.connect(save)
 
-resampleFactorSlider.valueChanged.connect(setResampleFactor)
-
 startEntry.textChanged.connect(setStart)
 endEntry.textChanged.connect(setEnd)
+resampleFactorEntry.textChanged.connect(setResampleFactor)
+shiftEntry.textChanged.connect(setShift)
+brightnessEntry.textChanged.connect(setBrightness)
+contrastEntry.textChanged.connect(setContrast)
 
 app.exec()
  
