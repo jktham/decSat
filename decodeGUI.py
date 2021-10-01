@@ -139,7 +139,7 @@ filterLabel.show()
 
 filterCheckbox = QCheckBox(window)
 filterCheckbox.setChecked(True)
-filterCheckbox.move(160, 510)
+filterCheckbox.move(180, 510)
 filterCheckbox.resize(40, 40)
 filterCheckbox.show()
 
@@ -153,38 +153,33 @@ processLabel.move(220, 1050)
 processLabel.resize(600, 40)
 processLabel.show()
 
-clearButton = QPushButton("Clear image", window)
-clearButton.move(1590, 10)
-clearButton.resize(200, 40)
-clearButton.show()
-
 plotWavButton = QPushButton("Plot wav", window)
-plotWavButton.move(1590, 60)
+plotWavButton.move(1590, 750)
 plotWavButton.resize(200, 40)
 plotWavButton.show()
 
 plotWavFourierButton = QPushButton("Plot wav fourier", window)
-plotWavFourierButton.move(1590, 110)
+plotWavFourierButton.move(1590, 800)
 plotWavFourierButton.resize(200, 40)
 plotWavFourierButton.show()
 
 plotSpectogramButton = QPushButton("Plot spectogram", window)
-plotSpectogramButton.move(1590, 160)
+plotSpectogramButton.move(1590, 850)
 plotSpectogramButton.resize(200, 40)
 plotSpectogramButton.show()
 
 plotImageButton = QPushButton("Plot image", window)
-plotImageButton.move(1590, 210)
+plotImageButton.move(1590, 900)
 plotImageButton.resize(200, 40)
 plotImageButton.show()
 
 plotImageFourierPreButton = QPushButton("Plot fourier (pre)", window)
-plotImageFourierPreButton.move(1590, 260)
+plotImageFourierPreButton.move(1590, 950)
 plotImageFourierPreButton.resize(200, 40)
 plotImageFourierPreButton.show()
 
 plotImageFourierPostButton = QPushButton("Plot fourier (post)", window)
-plotImageFourierPostButton.move(1590, 310)
+plotImageFourierPostButton.move(1590, 1000)
 plotImageFourierPostButton.resize(200, 40)
 plotImageFourierPostButton.show()
 
@@ -200,20 +195,20 @@ imageDisplayLabel.show()
 
 aspectRatioCheckbox = QCheckBox(window)
 aspectRatioCheckbox.setChecked(True)
-aspectRatioCheckbox.move(1590, 1000)
+aspectRatioCheckbox.move(1310, 1050)
 aspectRatioCheckbox.resize(40, 40)
 aspectRatioCheckbox.show()
 
 aspectRatioEntryLabel = QLabel("Aspect ratio", window)
-aspectRatioEntryLabel.move(1620, 1000)
+aspectRatioEntryLabel.move(1350, 1050)
 aspectRatioEntryLabel.resize(200, 40)
 aspectRatioEntryLabel.show()
 
 aspectRatioEntry = QLineEdit("1.4", window)
 aspectRatioEntry.setValidator(QDoubleValidator())
 aspectRatioEntry.setAlignment(Qt.AlignRight)
-aspectRatioEntry.move(1740, 1000)
-aspectRatioEntry.resize(50, 40)
+aspectRatioEntry.move(1480, 1050)
+aspectRatioEntry.resize(80, 40)
 aspectRatioEntry.show()
 
 
@@ -367,14 +362,6 @@ def save():
                 plt.imsave(path, aspectRatioImage)
             else:
                 plt.imsave(path, image)
-    return
-
-def clear():
-    global processingDone, image
-    if processingDone:
-        processingDone = False
-        imageDisplayLabel.setPixmap(QPixmap())
-        processLabel.setText("")
     return
 
 def update(object, str):
@@ -534,7 +521,6 @@ def plotImageFourierPost():
 selectFileButton.clicked.connect(selectFile)
 processButton.clicked.connect(decode)
 saveButton.clicked.connect(save)
-clearButton.clicked.connect(clear)
 plotWavButton.clicked.connect(plotWav)
 plotWavFourierButton.clicked.connect(plotWavFourier)
 plotSpectogramButton.clicked.connect(plotSpectogram)
