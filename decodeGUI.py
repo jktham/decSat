@@ -163,10 +163,10 @@ plotWavFourierButton.move(1590, 800)
 plotWavFourierButton.resize(200, 40)
 plotWavFourierButton.show()
 
-plotSpectogramButton = QPushButton("Plot spectogram", window)
-plotSpectogramButton.move(1590, 850)
-plotSpectogramButton.resize(200, 40)
-plotSpectogramButton.show()
+plotSpectrogramButton = QPushButton("Plot spectrogram", window)
+plotSpectrogramButton.move(1590, 850)
+plotSpectrogramButton.resize(200, 40)
+plotSpectrogramButton.show()
 
 plotImageButton = QPushButton("Plot image", window)
 plotImageButton.move(1590, 900)
@@ -254,7 +254,7 @@ def decode():
     update(processLabel, "Filtering image")
     image = filter(image)
 
-    update(processLabel, "Done (" + str(image.shape[1]) + "x" + str(image.shape[0]) + ", " + str(round(time.time() - timeStart, 2)) + "s)")
+    update(processLabel, f"Done ({str(image.shape[1])}x{str(image.shape[0])}, {str(round(time.time() - timeStart, 2))}s)")
     display(image)
 
     processingDone = True
@@ -338,7 +338,7 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
         x += 1
         if x >= width:
             if y % 10 == 0:
-                update(processLabel, "Generating image (" + str(y) + "/" + str(height) + ") * " + str(x))
+                update(processLabel, f"Generating image ({str(y)}/{str(height)}) * {str(x)}")
             x = 0
             y += 1
             if y >= height:
@@ -445,13 +445,7 @@ def plotWav():
         plt.axhline(y=averageAmplitude, color='r', linestyle='-')
         plt.xlabel("Sample")
         plt.ylabel("Amplitude")
-        plt.title(
-            inputFile + ", " + 
-            str(originalSampleRate) + "Hz, (" + 
-            str(sampleRate) + "), " + 
-            str(start) + "-" + 
-            str(end) + "s"
-        )
+        plt.title(f"{inputFile}, {str(originalSampleRate)}Hz, ({str(sampleRate)}), {str(start)}-{str(end)}s")
         plt.show()
     return
 
@@ -464,11 +458,12 @@ def plotWavFourier():
         plt.show()
     return
 
-def plotSpectogram():
+def plotSpectrogram():
     if processingDone:
         plt.ion()
         plt.figure(2, figsize=(8, 8))
         plt.specgram(data)
+        plt.title("Spectrogram")
         plt.show()
     return
     
@@ -477,17 +472,7 @@ def plotImage():
         plt.ion()
         plt.figure(3, figsize=(24, 16))
         plt.imshow(image, aspect=image.shape[1] / image.shape[0] * 0.8)
-        plt.title(
-            inputFile + ", " + 
-            str(originalSampleRate) + "Hz, (" + 
-            str(sampleRate) + "), " + 
-            str(start) + "-" + 
-            str(end) + "s, " + 
-            str(image.shape[1]) + "x" + 
-            str(image.shape[0]) + ", " + 
-            str(brightness) + ", " + 
-            str(contrast)
-        )
+        plt.title(f"{inputFile}, {str(originalSampleRate)}Hz, ({str(sampleRate)}), {str(start)}-{str(end)}s, {str(image.shape[1])}x{str(image.shape[0])}, {str(brightness)}, {str(contrast)}")
         plt.show()
     return
 
@@ -523,7 +508,7 @@ processButton.clicked.connect(decode)
 saveButton.clicked.connect(save)
 plotWavButton.clicked.connect(plotWav)
 plotWavFourierButton.clicked.connect(plotWavFourier)
-plotSpectogramButton.clicked.connect(plotSpectogram)
+plotSpectrogramButton.clicked.connect(plotSpectrogram)
 plotImageButton.clicked.connect(plotImage)
 plotImageFourierPreButton.clicked.connect(plotImageFourierPre)
 plotImageFourierPostButton.clicked.connect(plotImageFourierPost)
