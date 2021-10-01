@@ -134,7 +134,7 @@ contrastSlider.show()
 
 filterLabel = QLabel("Fourier filter", window)
 filterLabel.move(10, 510)
-filterLabel.resize(100, 40)
+filterLabel.resize(120, 40)
 filterLabel.show()
 
 filterCheckbox = QCheckBox(window)
@@ -163,23 +163,28 @@ plotWavButton.move(1590, 60)
 plotWavButton.resize(200, 40)
 plotWavButton.show()
 
-plotImageButton = QPushButton("Plot image", window)
-plotImageButton.move(1590, 110)
-plotImageButton.resize(200, 40)
-plotImageButton.show()
-
 plotWavFourierButton = QPushButton("Plot wav fourier", window)
-plotWavFourierButton.move(1590, 160)
+plotWavFourierButton.move(1590, 110)
 plotWavFourierButton.resize(200, 40)
 plotWavFourierButton.show()
 
-plotImageFourierPreButton = QPushButton("Plot image fourier (pre)", window)
-plotImageFourierPreButton.move(1590, 210)
+plotSpectogramButton = QPushButton("Plot spectogram", window)
+plotSpectogramButton.move(1590, 160)
+plotSpectogramButton.resize(200, 40)
+plotSpectogramButton.show()
+
+plotImageButton = QPushButton("Plot image", window)
+plotImageButton.move(1590, 210)
+plotImageButton.resize(200, 40)
+plotImageButton.show()
+
+plotImageFourierPreButton = QPushButton("Plot fourier (pre)", window)
+plotImageFourierPreButton.move(1590, 260)
 plotImageFourierPreButton.resize(200, 40)
 plotImageFourierPreButton.show()
 
-plotImageFourierPostButton = QPushButton("Plot image fourier (post)", window)
-plotImageFourierPostButton.move(1590, 260)
+plotImageFourierPostButton = QPushButton("Plot fourier (post)", window)
+plotImageFourierPostButton.move(1590, 310)
 plotImageFourierPostButton.resize(200, 40)
 plotImageFourierPostButton.show()
 
@@ -207,8 +212,8 @@ aspectRatioEntryLabel.show()
 aspectRatioEntry = QLineEdit("1.4", window)
 aspectRatioEntry.setValidator(QDoubleValidator())
 aspectRatioEntry.setAlignment(Qt.AlignRight)
-aspectRatioEntry.move(1730, 1000)
-aspectRatioEntry.resize(60, 40)
+aspectRatioEntry.move(1740, 1000)
+aspectRatioEntry.resize(50, 40)
 aspectRatioEntry.show()
 
 
@@ -288,10 +293,22 @@ def filter(image):
             imageFourierPre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
             for i in range(imageFourierPre.shape[0]):
                 for j in range(imageFourierPre.shape[1]):
-                    if 1500 < j < 1600: #Too aggressive, maybe try if amplitude > xyz
-                        imageFourierPre[i, j] = 10
-                    if 3900 < j < 4000:
-                        imageFourierPre[i, j] = 10
+                    # if 1525 < j < 1575 and np.abs(np.real(imageFourierPre[i, j])) > 10 ** 5:
+                    #     imageFourierPre[i, j] = complex(10 ** 4, 10 ** 4)
+                    # if 3925 < j < 3975 and np.abs(np.real(imageFourierPre[i, j])) > 10 ** 5:
+                    #     imageFourierPre[i, j] = complex(10 ** 4, 10 ** 4)
+                    # if 5100 < j < 5200 and np.abs(np.real(imageFourierPre[i, j])) > 10 ** 5:
+                    #     imageFourierPre[i, j] = complex(10 ** 4, 10 ** 4)
+                    # if 300 < j < 400 and np.abs(np.real(imageFourierPre[i, j])) > 10 ** 5:
+                    #     imageFourierPre[i, j] = complex(10 ** 4, 10 ** 4)
+                    if 1525 < j < 1575:
+                        imageFourierPre[i, j] = complex(10 ** 1, 10 ** 1)
+                    if 3925 < j < 3975:
+                        imageFourierPre[i, j] = complex(10 ** 1, 10 ** 1)
+                    if 5100 < j < 5200:
+                        imageFourierPre[i, j] = complex(10 ** 1, 10 ** 1)
+                    if 300 < j < 400:
+                        imageFourierPre[i, j] = complex(10 ** 1, 10 ** 1)
             image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(imageFourierPre)))
         filtered = True
     return image
@@ -432,25 +449,6 @@ def setAspectRatio(value):
     aspectRatio = float(value)
     return
 
-def plotImage():
-    if processingDone:
-        plt.ion()
-        plt.figure(2, figsize=(24, 16))
-        plt.imshow(image, aspect=image.shape[1] / image.shape[0] * 0.8)
-        plt.title(
-            inputFile + ", " + 
-            str(originalSampleRate) + "Hz, (" + 
-            str(sampleRate) + "), " + 
-            str(start) + "-" + 
-            str(end) + "s, " + 
-            str(image.shape[1]) + "x" + 
-            str(image.shape[0]) + ", " + 
-            str(brightness) + ", " + 
-            str(contrast)
-        )
-        plt.show()
-    return
-
 def plotWav():
     if processingDone:
         plt.ion()
@@ -470,29 +468,6 @@ def plotWav():
         plt.show()
     return
 
-def plotImageFourierPre():
-    global imageFourierPre
-    if processingDone:
-        if filtered:
-            plt.ion()
-            plt.figure(3, figsize=(8, 8))
-            for c in range(image.shape[2]):
-                plt.imshow(np.log(abs(imageFourierPre)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
-            plt.title("Image fourier")
-            plt.show()
-    return
-
-def plotImageFourierPost():
-    if processingDone:
-        plt.ion()
-        plt.figure(3, figsize=(8, 8))
-        for c in range(image.shape[2]):
-            imageFourierPost = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
-            plt.imshow(np.log(abs(imageFourierPost)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
-        plt.title("Image fourier")
-        plt.show()
-    return
-
 def plotWavFourier():
     if processingDone:
         plt.ion()
@@ -502,15 +477,70 @@ def plotWavFourier():
         plt.show()
     return
 
+def plotSpectogram():
+    if processingDone:
+        plt.ion()
+        plt.figure(2, figsize=(8, 8))
+        plt.specgram(data)
+        plt.show()
+    return
+    
+def plotImage():
+    if processingDone:
+        plt.ion()
+        plt.figure(3, figsize=(24, 16))
+        plt.imshow(image, aspect=image.shape[1] / image.shape[0] * 0.8)
+        plt.title(
+            inputFile + ", " + 
+            str(originalSampleRate) + "Hz, (" + 
+            str(sampleRate) + "), " + 
+            str(start) + "-" + 
+            str(end) + "s, " + 
+            str(image.shape[1]) + "x" + 
+            str(image.shape[0]) + ", " + 
+            str(brightness) + ", " + 
+            str(contrast)
+        )
+        plt.show()
+    return
+
+def plotImageFourierPre():
+    global imageFourierPre
+    if processingDone:
+        if filtered:
+            plt.ion()
+            plt.figure(4, figsize=(8, 8))
+            plt.title("Image fourier real")
+            for c in range(image.shape[2]):
+                plt.imshow(np.log10(np.abs(np.real(imageFourierPre))), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+            plt.figure(5, figsize=(8, 8))
+            plt.title("Image fourier imaginary")
+            for c in range(image.shape[2]):
+                plt.imshow(np.log10(np.abs(np.imag(imageFourierPre))), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+            plt.show()
+    return
+
+def plotImageFourierPost():
+    if processingDone:
+        plt.ion()
+        plt.figure(6, figsize=(8, 8))
+        for c in range(image.shape[2]):
+            imageFourierPost = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+            plt.imshow(np.log(abs(imageFourierPost)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+        plt.title("Image fourier")
+        plt.show()
+    return
+
 selectFileButton.clicked.connect(selectFile)
 processButton.clicked.connect(decode)
 saveButton.clicked.connect(save)
 clearButton.clicked.connect(clear)
-plotImageButton.clicked.connect(plotImage)
 plotWavButton.clicked.connect(plotWav)
+plotWavFourierButton.clicked.connect(plotWavFourier)
+plotSpectogramButton.clicked.connect(plotSpectogram)
+plotImageButton.clicked.connect(plotImage)
 plotImageFourierPreButton.clicked.connect(plotImageFourierPre)
 plotImageFourierPostButton.clicked.connect(plotImageFourierPost)
-plotWavFourierButton.clicked.connect(plotWavFourier)
 
 startEntry.textChanged.connect(setStart)
 endEntry.textChanged.connect(setEnd)
