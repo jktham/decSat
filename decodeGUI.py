@@ -135,36 +135,48 @@ contrastSlider.move(10, 460)
 contrastSlider.resize(200, 40)
 contrastSlider.show()
 
+offsetLabel = QLabel("Offset", window)
+offsetLabel.move(10, 510)
+offsetLabel.resize(100, 40)
+offsetLabel.show()
+
+offsetEntry = QLineEdit("0.0", window)
+offsetEntry.setValidator(QDoubleValidator())
+offsetEntry.setAlignment(Qt.AlignRight)
+offsetEntry.move(130, 510)
+offsetEntry.resize(80, 40)
+offsetEntry.show()
+
 periodicFilterLabel = QLabel("Periodic filter", window)
-periodicFilterLabel.move(10, 510)
+periodicFilterLabel.move(10, 560)
 periodicFilterLabel.resize(120, 40)
 periodicFilterLabel.show()
 
 periodicFilterCheckbox = QCheckBox(window)
 periodicFilterCheckbox.setChecked(False)
-periodicFilterCheckbox.move(180, 510)
+periodicFilterCheckbox.move(180, 560)
 periodicFilterCheckbox.resize(40, 40)
 periodicFilterCheckbox.show()
 
 fourierFilterLabel = QLabel("Fourier filter", window)
-fourierFilterLabel.move(10, 560)
+fourierFilterLabel.move(10, 610)
 fourierFilterLabel.resize(120, 40)
 fourierFilterLabel.show()
 
 fourierFilterCheckbox = QCheckBox(window)
 fourierFilterCheckbox.setChecked(False)
-fourierFilterCheckbox.move(180, 560)
+fourierFilterCheckbox.move(180, 610)
 fourierFilterCheckbox.resize(40, 40)
 fourierFilterCheckbox.show()
 
 resyncLabel = QLabel("Resync", window)
-resyncLabel.move(10, 610)
+resyncLabel.move(10, 660)
 resyncLabel.resize(120, 40)
 resyncLabel.show()
 
 resyncCheckbox = QCheckBox(window)
 resyncCheckbox.setChecked(False)
-resyncCheckbox.move(180, 610)
+resyncCheckbox.move(180, 660)
 resyncCheckbox.resize(40, 40)
 resyncCheckbox.show()
 
@@ -254,6 +266,7 @@ resampleFactor = 1
 resampleRate = 4160
 brightness = 1
 contrast = 1
+offset = 0
 aspectRatio = 1.4
 
 processingDone = False
@@ -291,6 +304,9 @@ def decode():
 
     update(processLabel, "Generating image")
     image = generateImage(amplitude, sampleRate, averageAmplitude)
+
+    update(processLabel, "Offsetting image")
+    image = align(image, offset)
 
     update(processLabel, "Resyncing image")
     image = resync(image)
@@ -404,6 +420,11 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
                 break
     return image
 
+def align(image, offset):
+    for y in range(height):
+        image[y] = np.roll(image[y], int(offset*width), axis=0)
+    return image
+
 def resync(image):
     if resyncCheckbox.isChecked():
         syncPos = np.zeros(height)
@@ -451,7 +472,8 @@ def displayImage(image):
 
 def save():
     if processingDone:
-        path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out", "PNGfile (*.png)")
+        inputFileName = inputFile.split("/")[-1].split(".")[-2]
+        path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out/"+inputFileName+".png", "PNGfile (*.png)")
         if check:
             if aspectRatioCheckbox.isChecked():
                 aspectRatioImage = transform.resize(image, (height, int(height * aspectRatio)))
@@ -523,6 +545,13 @@ def setContrastSlider(value):
     global contrast
     contrast = float(int(value)/1000)
     contrastEntry.setText(str(int(value)/10))
+    return
+
+def setOffset(value):
+    global offset
+    if value == "" or value == "." or value == "-":
+        value = 0
+    offset = float(value)
     return
 
 def setAspectRatio(value):
@@ -614,6 +643,7 @@ shiftEntry.textChanged.connect(setShift)
 resampleFactorEntry.textChanged.connect(setResampleFactor)
 brightnessEntry.textChanged.connect(setBrightness)
 contrastEntry.textChanged.connect(setContrast)
+offsetEntry.textChanged.connect(setOffset)
 aspectRatioEntry.textChanged.connect(setAspectRatio)
 
 brightnessSlider.valueChanged.connect(setBrightnessSlider)
