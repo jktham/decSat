@@ -476,7 +476,7 @@ def save():
         path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out/"+inputFileName+".png", "PNGfile (*.png)")
         if check:
             if aspectRatioCheckbox.isChecked():
-                aspectRatioImage = transform.resize(image, (height, int(height * aspectRatio)))
+                aspectRatioImage = transform.resize(image, (int(width/aspectRatio), width))
                 plt.imsave(path, aspectRatioImage)
             else:
                 plt.imsave(path, image)
