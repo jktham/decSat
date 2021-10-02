@@ -24,7 +24,7 @@ selectFileButton.show()
 
 selectFileLabel = QLabel("", window)
 selectFileLabel.move(220, 10)
-selectFileLabel.resize(600, 40)
+selectFileLabel.resize(800, 40)
 selectFileLabel.show()
 
 startLabel = QLabel("Start", window)
@@ -138,7 +138,7 @@ filterLabel.resize(120, 40)
 filterLabel.show()
 
 filterCheckbox = QCheckBox(window)
-filterCheckbox.setChecked(True)
+filterCheckbox.setChecked(False)
 filterCheckbox.move(180, 510)
 filterCheckbox.resize(40, 40)
 filterCheckbox.show()
@@ -154,32 +154,32 @@ processLabel.resize(600, 40)
 processLabel.show()
 
 plotWavButton = QPushButton("Plot wav", window)
-plotWavButton.move(1590, 750)
+plotWavButton.move(1590, 10)
 plotWavButton.resize(200, 40)
 plotWavButton.show()
 
 plotWavFourierButton = QPushButton("Plot wav fourier", window)
-plotWavFourierButton.move(1590, 800)
+plotWavFourierButton.move(1590, 60)
 plotWavFourierButton.resize(200, 40)
 plotWavFourierButton.show()
 
 plotSpectrogramButton = QPushButton("Plot spectrogram", window)
-plotSpectrogramButton.move(1590, 850)
+plotSpectrogramButton.move(1590, 110)
 plotSpectrogramButton.resize(200, 40)
 plotSpectrogramButton.show()
 
 plotImageButton = QPushButton("Plot image", window)
-plotImageButton.move(1590, 900)
+plotImageButton.move(1590, 160)
 plotImageButton.resize(200, 40)
 plotImageButton.show()
 
 plotImageFourierPreButton = QPushButton("Plot fourier (pre)", window)
-plotImageFourierPreButton.move(1590, 950)
+plotImageFourierPreButton.move(1590, 210)
 plotImageFourierPreButton.resize(200, 40)
 plotImageFourierPreButton.show()
 
 plotImageFourierPostButton = QPushButton("Plot fourier (post)", window)
-plotImageFourierPostButton.move(1590, 1000)
+plotImageFourierPostButton.move(1590, 260)
 plotImageFourierPostButton.resize(200, 40)
 plotImageFourierPostButton.show()
 
@@ -195,19 +195,19 @@ imageDisplayLabel.show()
 
 aspectRatioCheckbox = QCheckBox(window)
 aspectRatioCheckbox.setChecked(True)
-aspectRatioCheckbox.move(1310, 1050)
+aspectRatioCheckbox.move(1590, 1000)
 aspectRatioCheckbox.resize(40, 40)
 aspectRatioCheckbox.show()
 
-aspectRatioEntryLabel = QLabel("Aspect ratio", window)
-aspectRatioEntryLabel.move(1350, 1050)
+aspectRatioEntryLabel = QLabel("Aspect", window)
+aspectRatioEntryLabel.move(1630, 1000)
 aspectRatioEntryLabel.resize(200, 40)
 aspectRatioEntryLabel.show()
 
 aspectRatioEntry = QLineEdit("1.4", window)
 aspectRatioEntry.setValidator(QDoubleValidator())
 aspectRatioEntry.setAlignment(Qt.AlignRight)
-aspectRatioEntry.move(1480, 1050)
+aspectRatioEntry.move(1710, 1000)
 aspectRatioEntry.resize(80, 40)
 aspectRatioEntry.show()
 
@@ -243,7 +243,7 @@ def decode():
     data = crop(data, start, end, sampleRate)
 
     update(processLabel, "Generating amplitude envelope")
-    amplitude = hilbert(data)
+    amplitude = envelope(data)
 
     update(processLabel, "Calculating average amplitude")
     averageAmplitude = getAverageAmplitude(amplitude)
@@ -308,7 +308,7 @@ def filter(image):
         filtered = True
     return image
 
-def hilbert(data):
+def envelope(data):
     amplitude = np.abs(signal.hilbert(data))
     return amplitude
 
