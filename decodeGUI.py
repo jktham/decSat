@@ -1,15 +1,16 @@
-import matplotlib.pyplot as plt
-import numpy as np
-from numpy.lib.function_base import average
-import scipy.io.wavfile as wav
 import math
 import time
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.io.wavfile as wav
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
 from skimage import color, transform
-import cv2
+
 
 app = QApplication([])
 window = QWidget()
@@ -17,6 +18,7 @@ window = QWidget()
 window.resize(1800, 1100)
 window.setWindowTitle("decodeGUI")
 window.show()
+
 
 selectFileButton = QPushButton("Select file", window)
 selectFileButton.move(10, 10)
@@ -166,6 +168,7 @@ resyncCheckbox.move(180, 610)
 resyncCheckbox.resize(40, 40)
 resyncCheckbox.show()
 
+
 processButton = QPushButton("Process file", window)
 processButton.move(10, 1050)
 processButton.resize(200, 40)
@@ -175,6 +178,7 @@ processLabel = QLabel("", window)
 processLabel.move(220, 1050)
 processLabel.resize(600, 40)
 processLabel.show()
+
 
 plotWavButton = QPushButton("Plot wav", window)
 plotWavButton.move(1590, 10)
@@ -206,15 +210,6 @@ plotImageFourierPostButton.move(1590, 260)
 plotImageFourierPostButton.resize(200, 40)
 plotImageFourierPostButton.show()
 
-saveButton = QPushButton("Save image", window)
-saveButton.move(1590, 1050)
-saveButton.resize(200, 40)
-saveButton.show()
-
-imageDisplayLabel = QLabel("", window)
-imageDisplayLabel.move(220, 60)
-imageDisplayLabel.resize(1360, 980)
-imageDisplayLabel.show()
 
 aspectRatioCheckbox = QCheckBox(window)
 aspectRatioCheckbox.setChecked(True)
@@ -234,18 +229,35 @@ aspectRatioEntry.move(1710, 1000)
 aspectRatioEntry.resize(80, 40)
 aspectRatioEntry.show()
 
+saveButton = QPushButton("Save image", window)
+saveButton.move(1590, 1050)
+saveButton.resize(200, 40)
+saveButton.show()
 
+
+imageLabel = QLabel("", window)
+imageLabel.move(220, 60)
+imageLabel.resize(1360, 980)
+imageLabel.show()
+
+infoLabel = QLabel("", window)
+infoLabel.move(400, 1050)
+infoLabel.resize(800, 40)
+infoLabel.show()
+
+
+inputFile = ""
 start = 0
 end = 0
+shift = 0
 resampleFactor = 1
 resampleRate = 4160
-shift = 0
 brightness = 1
 contrast = 1
+aspectRatio = 1.4
+
 processingDone = False
 filtered = False
-inputFile = ""
-aspectRatio = 1.4
 
 def decode():
     global data, originalSampleRate, sampleRate, amplitude, averageAmplitude, image, processingDone, filtered
@@ -256,6 +268,8 @@ def decode():
     if inputFile == "":
         update(processLabel, "No file!")
         return
+
+    update(infoLabel, "")
 
     update(processLabel, "Loading file")
     originalSampleRate, data = wav.read(inputFile)
@@ -284,10 +298,10 @@ def decode():
     update(processLabel, "Filtering image")
     image = fourierFilter(image)
 
-    update(processLabel, f"Done ({str(image.shape[1])}x{str(image.shape[0])}, {str(round(time.time() - timeStart, 2))}s)")
-    display(image)
-
+    update(processLabel, f"Done ({str(round(time.time() - timeStart, 2))}s)")
     processingDone = True
+    displayImage(image)
+    displayInfo()
     return
 
 def selectFile():
@@ -358,6 +372,12 @@ def getAverageAmplitude(amplitude):
     averageAmplitude = float(amplitude_sum / amplitude.shape[0])
     return averageAmplitude
 
+def signalToNoise(amplitude):
+    SD = amplitude.std(axis=0, ddof=0)
+    SNR = np.where(SD == 0, 0, averageAmplitude / SD)
+    SNR = 20 * np.log10(abs(SNR))
+    return SNR
+
 def generateImage(amplitude, sampleRate, averageAmplitude):
     global width, height
     width = int(0.5 * int(sampleRate + shift))
@@ -386,12 +406,15 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
 
 def resync(image):
     if resyncCheckbox.isChecked():
-        syncPos = np.zeros(image.shape[0])
-        for y in range(image.shape[0]):
+        syncPos = np.zeros(height)
+
+        for y in range(height):
             update(processLabel, f"Resyncing image ({y})")
-            for x in range(image.shape[1]):
+
+            for x in range(width):
                 dark_sum = 0
                 bright_sum = 0
+
                 for k in range(100):
                     if x+k < width:
                         dark_sum += image[y, x+k, 0]
@@ -401,27 +424,32 @@ def resync(image):
                         bright_sum += image[y, int(x+k+width/2), 0]
                     else:
                         bright_sum += image[y, int(x+k-width/2), 0]
+
                 if dark_sum < k * 80 and bright_sum > k * 180:
                     syncPos[y] = x
                     update(processLabel, f"Resyncing image ({y}, {x})")
                     break
-        for y in range(image.shape[0]):
-            for x in range(image.shape[1]):
+
+        for y in range(height):
+            for x in range(width):
                 if x+syncPos[y] < width:
                     image[y ,x] = image[y, int(x+syncPos[y])]
                 else:
                     image[y ,x] = image[y, int(x-syncPos[y])]
     return image
 
-def display(image):
+def displayInfo():
+    update(infoLabel, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sampleRate, 2)}s,  Samplerate: {sampleRate}Hz,  avAmp: {round(averageAmplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
+    return
+
+def displayImage(image):
     h, w, _ = image.shape
     displayImage = QImage(image.data, w, h, 3 * w, QImage.Format_RGB888)
-    displayPixMap = QPixmap(displayImage).scaled(imageDisplayLabel.size(), transformMode=Qt.TransformationMode.SmoothTransformation)
-    imageDisplayLabel.setPixmap(displayPixMap)
+    displayPixMap = QPixmap(displayImage).scaled(imageLabel.size(), transformMode=Qt.TransformationMode.SmoothTransformation)
+    imageLabel.setPixmap(displayPixMap)
     return
 
 def save():
-    global image
     if processingDone:
         path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out", "PNGfile (*.png)")
         if check:
@@ -545,7 +573,6 @@ def plotImage():
     return
 
 def plotImageFourierPre():
-    global imageFourierPre
     if processingDone:
         if filtered:
             plt.ion()
