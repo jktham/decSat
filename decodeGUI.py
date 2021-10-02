@@ -9,6 +9,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
 from skimage import color, transform
+import cv2
 
 app = QApplication([])
 window = QWidget()
@@ -132,16 +133,38 @@ contrastSlider.move(10, 460)
 contrastSlider.resize(200, 40)
 contrastSlider.show()
 
-filterLabel = QLabel("Fourier filter", window)
-filterLabel.move(10, 510)
-filterLabel.resize(120, 40)
-filterLabel.show()
+periodicFilterLabel = QLabel("Periodic filter", window)
+periodicFilterLabel.move(10, 510)
+periodicFilterLabel.resize(120, 40)
+periodicFilterLabel.show()
 
-filterCheckbox = QCheckBox(window)
-filterCheckbox.setChecked(False)
-filterCheckbox.move(180, 510)
-filterCheckbox.resize(40, 40)
-filterCheckbox.show()
+periodicFilterCheckbox = QCheckBox(window)
+periodicFilterCheckbox.setChecked(False)
+periodicFilterCheckbox.move(180, 510)
+periodicFilterCheckbox.resize(40, 40)
+periodicFilterCheckbox.show()
+
+fourierFilterLabel = QLabel("Fourier filter", window)
+fourierFilterLabel.move(10, 560)
+fourierFilterLabel.resize(120, 40)
+fourierFilterLabel.show()
+
+fourierFilterCheckbox = QCheckBox(window)
+fourierFilterCheckbox.setChecked(False)
+fourierFilterCheckbox.move(180, 560)
+fourierFilterCheckbox.resize(40, 40)
+fourierFilterCheckbox.show()
+
+resyncLabel = QLabel("Resync", window)
+resyncLabel.move(10, 610)
+resyncLabel.resize(120, 40)
+resyncLabel.show()
+
+resyncCheckbox = QCheckBox(window)
+resyncCheckbox.setChecked(False)
+resyncCheckbox.move(180, 610)
+resyncCheckbox.resize(40, 40)
+resyncCheckbox.show()
 
 processButton = QPushButton("Process file", window)
 processButton.move(10, 1050)
@@ -215,6 +238,7 @@ aspectRatioEntry.show()
 start = 0
 end = 0
 resampleFactor = 1
+resampleRate = 4160
 shift = 0
 brightness = 1
 contrast = 1
@@ -237,7 +261,7 @@ def decode():
     originalSampleRate, data = wav.read(inputFile)
 
     update(processLabel, "Resampling data")
-    data, sampleRate = resample(data, originalSampleRate, resampleFactor)
+    data, sampleRate = resample(data, originalSampleRate, resampleFactor, resampleRate)
 
     update(processLabel, "Cropping data")
     data = crop(data, start, end, sampleRate)
@@ -248,11 +272,17 @@ def decode():
     update(processLabel, "Calculating average amplitude")
     averageAmplitude = getAverageAmplitude(amplitude)
 
+    update(processLabel, "Filtering data")
+    amplitude = periodicFilter(amplitude, averageAmplitude)
+
     update(processLabel, "Generating image")
     image = generateImage(amplitude, sampleRate, averageAmplitude)
 
+    update(processLabel, "Resyncing image")
+    image = resync(image)
+
     update(processLabel, "Filtering image")
-    image = filter(image)
+    image = fourierFilter(image)
 
     update(processLabel, f"Done ({str(image.shape[1])}x{str(image.shape[0])}, {str(round(time.time() - timeStart, 2))}s)")
     display(image)
@@ -262,14 +292,16 @@ def decode():
 
 def selectFile():
     global inputFile
-    inputFile, check = QFileDialog.getOpenFileName(None, "Select File", ".", "WAV files (*.wav)")
+    inputFile, check = QFileDialog.getOpenFileName(None, "Select File", "C:/Users/Jonas/projects/personal/matura/py/in", "WAV files (*.wav)")
     if check:
         update(selectFileLabel, inputFile)
     else:
         update(selectFileLabel, "")
     return
 
-def resample(data, sampleRate, resampleFactor):
+def resample(data, sampleRate, resampleFactor, resampleRate):
+    # data = signal.resample(data, int(data.shape[0] * resampleRate / sampleRate))
+    # sampleRate = resampleRate
     data = data[::resampleFactor]
     sampleRate = int(sampleRate / resampleFactor)
     return data, sampleRate
@@ -281,9 +313,16 @@ def crop(data, start, end, sampleRate):
         data = data[startSample:endSample]
     return data
 
-def filter(image):
+def periodicFilter(amplitude, averageAmplitude):
+    if periodicFilterCheckbox.isChecked():
+        offset = np.zeros(amplitude.shape[0])
+        for i in range(amplitude.shape[0]):
+            offset[i] = amplitude[i] - averageAmplitude
+    return amplitude
+
+def fourierFilter(image):
     global filtered, imageFourierPre
-    if filterCheckbox.isChecked():
+    if fourierFilterCheckbox.isChecked():
         for c in range(image.shape[2]):
             imageFourierPre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
             for i in range(imageFourierPre.shape[0]):
@@ -345,6 +384,35 @@ def generateImage(amplitude, sampleRate, averageAmplitude):
                 break
     return image
 
+def resync(image):
+    if resyncCheckbox.isChecked():
+        syncPos = np.zeros(image.shape[0])
+        for y in range(image.shape[0]):
+            update(processLabel, f"Resyncing image ({y})")
+            for x in range(image.shape[1]):
+                dark_sum = 0
+                bright_sum = 0
+                for k in range(100):
+                    if x+k < width:
+                        dark_sum += image[y, x+k, 0]
+                    else:
+                        dark_sum += image[y, x-k, 0]
+                    if x+k+width/2 < width:
+                        bright_sum += image[y, int(x+k+width/2), 0]
+                    else:
+                        bright_sum += image[y, int(x+k-width/2), 0]
+                if dark_sum < k * 80 and bright_sum > k * 180:
+                    syncPos[y] = x
+                    update(processLabel, f"Resyncing image ({y}, {x})")
+                    break
+        for y in range(image.shape[0]):
+            for x in range(image.shape[1]):
+                if x+syncPos[y] < width:
+                    image[y ,x] = image[y, int(x+syncPos[y])]
+                else:
+                    image[y ,x] = image[y, int(x-syncPos[y])]
+    return image
+
 def display(image):
     h, w, _ = image.shape
     displayImage = QImage(image.data, w, h, 3 * w, QImage.Format_RGB888)
@@ -355,7 +423,7 @@ def display(image):
 def save():
     global image
     if processingDone:
-        path, check = QFileDialog.getSaveFileName(None, "Save Image", ".", "PNGfile (*.png)")
+        path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out", "PNGfile (*.png)")
         if check:
             if aspectRatioCheckbox.isChecked():
                 aspectRatioImage = transform.resize(image, (height, int(height * aspectRatio)))
