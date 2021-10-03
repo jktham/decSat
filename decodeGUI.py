@@ -147,16 +147,16 @@ offsetEntry.move(130, 510)
 offsetEntry.resize(80, 40)
 offsetEntry.show()
 
-periodicFilterLabel = QLabel("Periodic filter", window)
-periodicFilterLabel.move(10, 560)
-periodicFilterLabel.resize(120, 40)
-periodicFilterLabel.show()
+highPassFilterLabel = QLabel("High pass filter", window)
+highPassFilterLabel.move(10, 560)
+highPassFilterLabel.resize(120, 40)
+highPassFilterLabel.show()
 
-periodicFilterCheckbox = QCheckBox(window)
-periodicFilterCheckbox.setChecked(False)
-periodicFilterCheckbox.move(180, 560)
-periodicFilterCheckbox.resize(40, 40)
-periodicFilterCheckbox.show()
+highPassFilterCheckbox = QCheckBox(window)
+highPassFilterCheckbox.setChecked(True)
+highPassFilterCheckbox.move(180, 560)
+highPassFilterCheckbox.resize(40, 40)
+highPassFilterCheckbox.show()
 
 fourierFilterLabel = QLabel("Fourier filter", window)
 fourierFilterLabel.move(10, 610)
@@ -293,14 +293,14 @@ def decode():
     update(processLabel, "Cropping data")
     data = crop(data, start, end, sampleRate)
 
+    update(processLabel, "Filtering data (High pass)")
+    data = highPassFilter(data)
+
     update(processLabel, "Generating amplitude envelope")
     amplitude = envelope(data)
 
     update(processLabel, "Calculating average amplitude")
     averageAmplitude = getAverageAmplitude(amplitude)
-
-    update(processLabel, "Filtering data")
-    amplitude = periodicFilter(amplitude, averageAmplitude)
 
     update(processLabel, "Generating image")
     image = generateImage(amplitude, sampleRate, averageAmplitude)
@@ -311,7 +311,7 @@ def decode():
     update(processLabel, "Resyncing image")
     image = resync(image)
 
-    update(processLabel, "Filtering image")
+    update(processLabel, "Filtering image (Fourier)")
     image = fourierFilter(image)
 
     update(processLabel, f"Done ({str(round(time.time() - timeStart, 2))}s)")
@@ -330,7 +330,11 @@ def selectFile():
     return
 
 def resample(data, sampleRate, resampleFactor, resampleRate):
-    # data = signal.resample(data, int(data.shape[0] * resampleRate / sampleRate))
+    # data = signal.resample(data, int(data.shape[0] / sampleRate) * 20800)
+    # for i in range(data.shape[0]):
+    #     if i % 5 == 0:
+    #         data[i] = max(abs(data[i+0]), abs(data[i+1]), abs(data[i+2]), abs(data[i+3]), abs(data[i+4]))
+    # data = signal.decimate(data, 5)
     # sampleRate = resampleRate
     data = data[::resampleFactor]
     sampleRate = int(sampleRate / resampleFactor)
@@ -343,12 +347,11 @@ def crop(data, start, end, sampleRate):
         data = data[startSample:endSample]
     return data
 
-def periodicFilter(amplitude, averageAmplitude):
-    if periodicFilterCheckbox.isChecked():
-        offset = np.zeros(amplitude.shape[0])
-        for i in range(amplitude.shape[0]):
-            offset[i] = amplitude[i] - averageAmplitude
-    return amplitude
+def highPassFilter(data):
+    if highPassFilterCheckbox.isChecked():
+        hpf = signal.firwin(101, 1200, fs=sampleRate, pass_zero=False)
+        data = signal.lfilter(hpf, [1.0], data)
+    return data
 
 def fourierFilter(image):
     global filtered, imageFourierPre
@@ -430,13 +433,11 @@ def resync(image):
         syncPos = np.zeros(height)
 
         for y in range(height):
-            update(processLabel, f"Resyncing image ({y})")
-
             for x in range(width):
                 dark_sum = 0
                 bright_sum = 0
 
-                for k in range(100):
+                for k in range(140):
                     if x+k < width:
                         dark_sum += image[y, x+k, 0]
                     else:
@@ -446,17 +447,17 @@ def resync(image):
                     else:
                         bright_sum += image[y, int(x+k-width/2), 0]
 
-                if dark_sum < k * 80 and bright_sum > k * 180:
+                if (dark_sum < 140 * 60 and bright_sum > 140 * 220):
+                    syncPos[y] = x
+                    update(processLabel, f"Resyncing image ({y}, {x})")
+                    break
+                if (bright_sum < 140 * 60 and dark_sum > 140 * 220):
                     syncPos[y] = x
                     update(processLabel, f"Resyncing image ({y}, {x})")
                     break
 
         for y in range(height):
-            for x in range(width):
-                if x+syncPos[y] < width:
-                    image[y ,x] = image[y, int(x+syncPos[y])]
-                else:
-                    image[y ,x] = image[y, int(x-syncPos[y])]
+            image[y] = np.roll(image[y], int(-syncPos[y]), axis=0)
     return image
 
 def displayInfo():
