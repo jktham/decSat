@@ -333,7 +333,7 @@ def resample(data, sampleRate, resampleFactor, resampleRate):
     # data = signal.resample(data, int(data.shape[0] / sampleRate) * 20800)
     # for i in range(data.shape[0]):
     #     if i % 5 == 0:
-    #         data[i] = max(abs(data[i+0]), abs(data[i+1]), abs(data[i+2]), abs(data[i+3]), abs(data[i+4]))
+    #         data[i] = np.mean(data[i:i+4])
     # data = signal.decimate(data, 5)
     # sampleRate = resampleRate
     data = data[::resampleFactor]
@@ -447,14 +447,12 @@ def resync(image):
                     else:
                         bright_sum += image[y, int(x+k-width/2), 0]
 
-                if (dark_sum < 140 * 60 and bright_sum > 140 * 220):
+                if (dark_sum < 140 * 50 and bright_sum > 140 * 220): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
                     syncPos[y] = x
                     update(processLabel, f"Resyncing image ({y}, {x})")
                     break
-                if (bright_sum < 140 * 60 and dark_sum > 140 * 220):
-                    syncPos[y] = x
-                    update(processLabel, f"Resyncing image ({y}, {x})")
-                    break
+
+            update(processLabel, f"Resyncing image ({y})")
 
         for y in range(height):
             image[y] = np.roll(image[y], int(-syncPos[y]), axis=0)
