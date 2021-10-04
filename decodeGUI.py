@@ -447,8 +447,9 @@ def resync(image):
         for y in range(height):
             if syncPos[y-1] > 0:
                 startPos = abs(int(syncPos[y-1] - 100))
-            for x in range(startPos, width):
-                
+            for x in range(startPos, width+startPos):
+                if x >= width:
+                    x = x-width
                 dark_sum = 0
                 bright_sum = 0
 
@@ -465,16 +466,16 @@ def resync(image):
                 if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
                     syncPos[y] = x
                     successPos += 1
-                    update(processLabel, f"Resyncing image ({y}, s {int(syncPos[y])}, {int(successPos)}/{int(height)})")
+                    update(processLabel, f"Resyncing image ({y}/{int(height)}, s {int(syncPos[y])}, {int(successPos)})")
                     break
 
             if syncPos[y] == 0:
                 if syncPos[y-1] > 0:
                     syncPos[y] = syncPos[y-1]
-                update(processLabel, f"Resyncing image ({y}, f {int(syncPos[y])}, {int(successPos)}/{int(height)})")
+                update(processLabel, f"Resyncing image ({y}/{int(height)}, f {int(syncPos[y])}, {int(successPos)})")
 
         for y in range(height):
-            image[y] = np.roll(image[y], int(-syncPos[y]), axis=0)
+            image[y] = np.roll(image[y], int(-syncPos[y]+84), axis=0)
     return image
 
 def displayInfo():
