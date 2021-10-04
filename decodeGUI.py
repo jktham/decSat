@@ -147,36 +147,47 @@ offsetEntry.move(130, 510)
 offsetEntry.resize(80, 40)
 offsetEntry.show()
 
+offsetSlider = QSlider(window)
+offsetSlider.setOrientation(Qt.Orientation.Horizontal)
+offsetSlider.setTickInterval(1)
+offsetSlider.setTickPosition(3)
+offsetSlider.setValue(0)
+offsetSlider.setMinimum(-10)
+offsetSlider.setMaximum(10)
+offsetSlider.move(10, 560)
+offsetSlider.resize(200, 40)
+offsetSlider.show()
+
 highPassFilterLabel = QLabel("High pass filter", window)
-highPassFilterLabel.move(10, 560)
-highPassFilterLabel.resize(120, 40)
+highPassFilterLabel.move(10, 610)
+highPassFilterLabel.resize(160, 40)
 highPassFilterLabel.show()
 
 highPassFilterCheckbox = QCheckBox(window)
 highPassFilterCheckbox.setChecked(True)
-highPassFilterCheckbox.move(180, 560)
+highPassFilterCheckbox.move(180, 610)
 highPassFilterCheckbox.resize(40, 40)
 highPassFilterCheckbox.show()
 
 fourierFilterLabel = QLabel("Fourier filter", window)
-fourierFilterLabel.move(10, 610)
+fourierFilterLabel.move(10, 660)
 fourierFilterLabel.resize(120, 40)
 fourierFilterLabel.show()
 
 fourierFilterCheckbox = QCheckBox(window)
 fourierFilterCheckbox.setChecked(False)
-fourierFilterCheckbox.move(180, 610)
+fourierFilterCheckbox.move(180, 660)
 fourierFilterCheckbox.resize(40, 40)
 fourierFilterCheckbox.show()
 
 resyncLabel = QLabel("Resync", window)
-resyncLabel.move(10, 660)
+resyncLabel.move(10, 710)
 resyncLabel.resize(120, 40)
 resyncLabel.show()
 
 resyncCheckbox = QCheckBox(window)
 resyncCheckbox.setChecked(False)
-resyncCheckbox.move(180, 660)
+resyncCheckbox.move(180, 710)
 resyncCheckbox.resize(40, 40)
 resyncCheckbox.show()
 
@@ -331,9 +342,6 @@ def selectFile():
 
 def resample(data, sampleRate, resampleFactor, resampleRate):
     # data = signal.resample(data, int(data.shape[0] / sampleRate) * 20800)
-    # for i in range(data.shape[0]):
-    #     if i % 5 == 0:
-    #         data[i] = np.mean(data[i:i+4])
     # data = signal.decimate(data, 5)
     # sampleRate = resampleRate
     data = data[::resampleFactor]
@@ -348,9 +356,11 @@ def crop(data, start, end, sampleRate):
     return data
 
 def highPassFilter(data):
+    passes = 1
     if highPassFilterCheckbox.isChecked():
         hpf = signal.firwin(101, 1200, fs=sampleRate, pass_zero=False)
-        data = signal.lfilter(hpf, [1.0], data)
+        for i in range(passes):
+            data = signal.lfilter(hpf, [1.0], data)
     return data
 
 def fourierFilter(image):
@@ -431,13 +441,18 @@ def align(image, offset):
 def resync(image):
     if resyncCheckbox.isChecked():
         syncPos = np.zeros(height)
+        startPos = 0
+        successPos = 0
 
         for y in range(height):
-            for x in range(width):
+            if syncPos[y-1] > 0:
+                startPos = abs(int(syncPos[y-1] - 100))
+            for x in range(startPos, width):
+                
                 dark_sum = 0
                 bright_sum = 0
 
-                for k in range(140):
+                for k in range(130):
                     if x+k < width:
                         dark_sum += image[y, x+k, 0]
                     else:
@@ -447,12 +462,16 @@ def resync(image):
                     else:
                         bright_sum += image[y, int(x+k-width/2), 0]
 
-                if (dark_sum < 140 * 50 and bright_sum > 140 * 220): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
+                if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
                     syncPos[y] = x
-                    update(processLabel, f"Resyncing image ({y}, {x})")
+                    successPos += 1
+                    update(processLabel, f"Resyncing image ({y}, s {int(syncPos[y])}, {int(successPos)}/{int(height)})")
                     break
 
-            update(processLabel, f"Resyncing image ({y})")
+            if syncPos[y] == 0:
+                if syncPos[y-1] > 0:
+                    syncPos[y] = syncPos[y-1]
+                update(processLabel, f"Resyncing image ({y}, f {int(syncPos[y])}, {int(successPos)}/{int(height)})")
 
         for y in range(height):
             image[y] = np.roll(image[y], int(-syncPos[y]), axis=0)
@@ -553,6 +572,12 @@ def setOffset(value):
     offset = float(value)
     return
 
+def setOffsetSlider(value):
+    global offset
+    offset = float(int(value)/1000)
+    offsetEntry.setText(str(int(value)/10))
+    return
+
 def setAspectRatio(value):
     global aspectRatio
     if value == "" or value == "." or value == "-":
@@ -645,8 +670,9 @@ contrastEntry.textChanged.connect(setContrast)
 offsetEntry.textChanged.connect(setOffset)
 aspectRatioEntry.textChanged.connect(setAspectRatio)
 
+resampleFactorSlider.valueChanged.connect(setResampleFactorSlider)
 brightnessSlider.valueChanged.connect(setBrightnessSlider)
 contrastSlider.valueChanged.connect(setContrastSlider)
-resampleFactorSlider.valueChanged.connect(setResampleFactorSlider)
+offsetSlider.valueChanged.connect(setOffsetSlider)
 
 app.exec_()
