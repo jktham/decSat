@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import *
 from scipy import signal
 from skimage import color, transform
 
+# --- UI setup ---
 
 app = QApplication([])
 window = QWidget()
@@ -18,7 +19,6 @@ window = QWidget()
 window.resize(1800, 1100)
 window.setWindowTitle("decodeGUI")
 window.show()
-
 
 select_file_button = QPushButton("Select file", window)
 select_file_button.move(10, 10)
@@ -268,6 +268,7 @@ info_label.move(400, 1050)
 info_label.resize(800, 40)
 info_label.show()
 
+# --- Processing ---
 
 input_file = ""
 start = 0
@@ -311,13 +312,13 @@ def decode():
     amplitude = envelope(data)
 
     updateText(process_label, "Calculating average amplitude")
-    average_amplitude = getaverage_amplitude(amplitude)
+    average_amplitude = getAverageAmplitude(amplitude)
 
     updateText(process_label, "Generating image")
     image = generateImage(amplitude, sample_rate, average_amplitude)
 
     updateText(process_label, "Offsetting image")
-    image = align(image, offset)
+    image = applyOffset(image, offset)
 
     updateText(process_label, "Resyncing image")
     image = resync(image)
@@ -363,49 +364,16 @@ def highPassFilter(data):
             data = signal.lfilter(hpf, [1.0], data)
     return data
 
-def fourierFilter(image):
-    global filtering_done, image_fourier_pre
-    if fourier_filter_checkbox.isChecked():
-        for c in range(image.shape[2]):
-            image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
-            for i in range(image_fourier_pre.shape[0]):
-                for j in range(image_fourier_pre.shape[1]):
-                    # if 1525 < j < 1575 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 3925 < j < 3975 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 5100 < j < 5200 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 300 < j < 400 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    if 1525 < j < 1575:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 3925 < j < 3975:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 5100 < j < 5200:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 300 < j < 400:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-            image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
-        filtering_done = True
-    return image
-
 def envelope(data):
     amplitude = np.abs(signal.hilbert(data))
     return amplitude
 
-def getaverage_amplitude(amplitude):
+def getAverageAmplitude(amplitude):
     amplitude_sum = 0
     for i in range(amplitude.shape[0]):
         amplitude_sum += amplitude[i]
     average_amplitude = float(amplitude_sum / amplitude.shape[0])
     return average_amplitude
-
-def signalToNoise(amplitude):
-    SD = amplitude.std(axis=0, ddof=0)
-    SNR = np.where(SD == 0, 0, average_amplitude / SD)
-    SNR = 20 * np.log10(abs(SNR))
-    return SNR
 
 def generateImage(amplitude, sample_rate, average_amplitude):
     global width, height
@@ -433,7 +401,7 @@ def generateImage(amplitude, sample_rate, average_amplitude):
                 break
     return image
 
-def align(image, offset):
+def applyOffset(image, offset):
     for y in range(height):
         image[y] = np.roll(image[y], int(offset*width), axis=0)
     return image
@@ -478,6 +446,39 @@ def resync(image):
             image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
     return image
 
+def fourierFilter(image):
+    global filtering_done, image_fourier_pre
+    if fourier_filter_checkbox.isChecked():
+        for c in range(image.shape[2]):
+            image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+            for i in range(image_fourier_pre.shape[0]):
+                for j in range(image_fourier_pre.shape[1]):
+                    # if 1525 < j < 1575 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                    # if 3925 < j < 3975 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                    # if 5100 < j < 5200 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                    # if 300 < j < 400 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                    if 1525 < j < 1575:
+                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                    if 3925 < j < 3975:
+                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                    if 5100 < j < 5200:
+                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                    if 300 < j < 400:
+                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+            image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
+        filtering_done = True
+    return image
+
+def signalToNoise(amplitude):
+    SD = amplitude.std(axis=0, ddof=0)
+    SNR = np.where(SD == 0, 0, average_amplitude / SD)
+    SNR = 20 * np.log10(abs(SNR))
+    return SNR
+
 def displayInfo():
     updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)}s,  sample_rate: {sample_rate}Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
     return
@@ -500,6 +501,8 @@ def save():
             else:
                 plt.imsave(path, image)
     return
+
+# --- UI updating ---
 
 def updateText(element, str):
     element.setText(str)
@@ -586,6 +589,8 @@ def setAspectRatio(value):
     aspect_ratio = float(value)
     return
 
+# --- Plots ---
+
 def plotWav():
     if processing_done:
         plt.ion()
@@ -651,6 +656,8 @@ def plotImageFourierPost():
         plt.title("Image fourier")
         plt.show()
     return
+
+# --- Event listeners ---
 
 select_file_button.clicked.connect(selectFile)
 process_button.clicked.connect(decode)
