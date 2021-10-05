@@ -234,16 +234,27 @@ plot_image_fourier_post_button.resize(200, 40)
 plot_image_fourier_post_button.show()
 
 
+height_correction_checkbox = QCheckBox(window)
+height_correction_checkbox.setChecked(True)
+height_correction_checkbox.move(1590, 950)
+height_correction_checkbox.resize(40, 40)
+height_correction_checkbox.show()
+
+height_correction_label = QLabel("Height correction", window)
+height_correction_label.move(1630, 950)
+height_correction_label.resize(200, 40)
+height_correction_label.show()
+
 aspect_ratio_checkbox = QCheckBox(window)
-aspect_ratio_checkbox.setChecked(True)
+aspect_ratio_checkbox.setChecked(False)
 aspect_ratio_checkbox.move(1590, 1000)
 aspect_ratio_checkbox.resize(40, 40)
 aspect_ratio_checkbox.show()
 
-aspect_ratio_entryLabel = QLabel("Aspect", window)
-aspect_ratio_entryLabel.move(1630, 1000)
-aspect_ratio_entryLabel.resize(200, 40)
-aspect_ratio_entryLabel.show()
+aspect_ratio_entry_label = QLabel("Ratio", window)
+aspect_ratio_entry_label.move(1630, 1000)
+aspect_ratio_entry_label.resize(200, 40)
+aspect_ratio_entry_label.show()
 
 aspect_ratio_entry = QLineEdit("1.4", window)
 aspect_ratio_entry.setValidator(QDoubleValidator())
@@ -265,7 +276,7 @@ image_label.show()
 
 info_label = QLabel("", window)
 info_label.move(400, 1050)
-info_label.resize(800, 40)
+info_label.resize(1000, 40)
 info_label.show()
 
 # --- Processing ---
@@ -280,12 +291,17 @@ brightness = 1
 contrast = 1
 offset = 0
 aspect_ratio = 1.4
+height_multiplier = 2.65
+
+ch_r = 1
+ch_g = 1
+ch_b = 1
 
 processing_done = False
 filtering_done = False
 
 def decode():
-    global data, original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, filtering_done
+    global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, filtering_done
     processing_done = False
     filtering_done = False
     time_start = time.time()
@@ -390,7 +406,7 @@ def generateImage(amplitude, sample_rate, average_amplitude):
             lum = 0
         if lum > 255:
             lum = 255
-        image[y, x] = (lum, lum, lum)
+        image[y, x] = (int(lum*ch_r), int(lum*ch_g), int(lum*ch_b))
         x += 1
         if x >= width:
             if y % 10 == 0:
@@ -480,7 +496,7 @@ def signalToNoise(amplitude):
     return SNR
 
 def displayInfo():
-    updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)}s,  sample_rate: {sample_rate}Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
+    updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)} s,  sample_rate: {sample_rate} Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)} dB")
     return
 
 def displayImage(image):
@@ -490,16 +506,20 @@ def displayImage(image):
     image_label.setPixmap(map)
     return
 
-def save():
+def saveImage():
     if processing_done:
         input_file_name = input_file.split("/")[-1].split(".")[-2]
         path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out/"+input_file_name+".png", "PNGfile (*.png)")
         if check:
             if aspect_ratio_checkbox.isChecked():
-                aspect_ratio_image = transform.resize(image, (int(width/aspect_ratio), width))
-                plt.imsave(path, aspect_ratio_image)
+                resized_img = transform.resize(image, (int(width/aspect_ratio), width))
+                plt.imsave(path, resized_img)
+            elif height_correction_checkbox.isChecked():
+                resized_img = transform.resize(image, (int(height*(width/2080)), width))
+                plt.imsave(path, resized_img)
             else:
                 plt.imsave(path, image)
+                
     return
 
 # --- UI updating ---
@@ -540,7 +560,7 @@ def setResampleFactor(value):
 def setResampleFactorSlider(value):
     global resample_factor
     resample_factor = 2 ** int(value)
-    resample_factor_entry.setText(str(2 ** int(value)))
+    updateText(resample_factor_entry, (str(2 ** int(value))))
     return
 
 def setBrightness(value):
@@ -553,7 +573,7 @@ def setBrightness(value):
 def setBrightnessSlider(value):
     global brightness
     brightness = float(value/1000)
-    brightness_entry.setText(str(int(value)/10))
+    updateText(brightness_entry, (str(int(value)/10)))
     return
 
 def setContrast(value):
@@ -566,7 +586,7 @@ def setContrast(value):
 def setContrastSlider(value):
     global contrast
     contrast = float(int(value)/1000)
-    contrast_entry.setText(str(int(value)/10))
+    updateText(contrast_entry, (str(int(value)/10)))
     return
 
 def setOffset(value):
@@ -579,7 +599,7 @@ def setOffset(value):
 def setOffsetSlider(value):
     global offset
     offset = float(int(value)/1000)
-    offset_entry.setText(str(int(value)/10))
+    updateText(offset_entry, (str(int(value)/10)))
     return
 
 def setAspectRatio(value):
@@ -661,7 +681,7 @@ def plotImageFourierPost():
 
 select_file_button.clicked.connect(selectFile)
 process_button.clicked.connect(decode)
-save_button.clicked.connect(save)
+save_button.clicked.connect(saveImage)
 plot_wav_button.clicked.connect(plotWav)
 plot_wav_fourier_button.clicked.connect(plotWavFourier)
 plot_spectrogram_button.clicked.connect(plotSpectrogram)
