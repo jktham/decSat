@@ -171,7 +171,7 @@ high_pass_filter_checkbox.show()
 
 fourier_filter_label = QLabel("Fourier filter", window)
 fourier_filter_label.move(10, 660)
-fourier_filter_label.resize(120, 40)
+fourier_filter_label.resize(160, 40)
 fourier_filter_label.show()
 
 fourier_filter_checkbox = QCheckBox(window)
@@ -182,7 +182,7 @@ fourier_filter_checkbox.show()
 
 resync_label = QLabel("Resync", window)
 resync_label.move(10, 710)
-resync_label.resize(120, 40)
+resync_label.resize(160, 40)
 resync_label.show()
 
 resync_checkbox = QCheckBox(window)
@@ -190,6 +190,17 @@ resync_checkbox.setChecked(False)
 resync_checkbox.move(180, 710)
 resync_checkbox.resize(40, 40)
 resync_checkbox.show()
+
+thermal_image_label = QLabel("Thermal image", window)
+thermal_image_label.move(10, 760)
+thermal_image_label.resize(160, 40)
+thermal_image_label.show()
+
+thermal_image_checkbox = QCheckBox(window)
+thermal_image_checkbox.setChecked(False)
+thermal_image_checkbox.move(180, 760)
+thermal_image_checkbox.resize(40, 40)
+thermal_image_checkbox.show()
 
 
 process_button = QPushButton("Process file", window)
@@ -322,7 +333,8 @@ def decode():
     data = crop(data, start, end, sample_rate)
 
     updateText(process_label, "Filtering data (High pass)")
-    data = highPassFilter(data)
+    if high_pass_filter_checkbox.isChecked():
+        data = highPassFilter(data)
 
     updateText(process_label, "Generating amplitude envelope")
     amplitude = envelope(data)
@@ -337,10 +349,16 @@ def decode():
     image = applyOffset(image, offset)
 
     updateText(process_label, "Resyncing image")
-    image = resync(image)
+    if resync_checkbox.isChecked():
+        image = resync(image)
 
     updateText(process_label, "Filtering image (Fourier)")
-    image = fourierFilter(image)
+    if fourier_filter_checkbox.isChecked():
+        image = fourierFilter(image)
+
+    updateText(process_label, "Generating thermal image")
+    if thermal_image_checkbox.isChecked():
+        image = generateThermalImage(image)
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
     processing_done = True
@@ -415,6 +433,10 @@ def generateImage(amplitude, sample_rate, average_amplitude):
             y += 1
             if y >= height:
                 break
+    return image
+
+def generateThermalImage(image):
+    image = cv2.applyColorMap(image[:, :, 0], cv2.COLORMAP_JET)
     return image
 
 def applyOffset(image, offset):
@@ -522,6 +544,74 @@ def saveImage():
                 
     return
 
+# --- Plots ---
+
+def plotWav():
+    if processing_done:
+        plt.ion()
+        plt.figure(0, figsize=(24, 8))
+        plt.plot(data)
+        plt.plot(amplitude)
+        plt.axhline(y=average_amplitude, color='r', linestyle='-')
+        plt.xlabel("Sample")
+        plt.ylabel("Amplitude")
+        plt.title(f"{input_file}, {str(original_sample_rate)}Hz, ({str(sample_rate)}), {str(start)}-{str(end)}s")
+        plt.show()
+    return
+
+def plotWavFourier():
+    if processing_done:
+        plt.ion()
+        plt.figure(1, figsize=(8, 8))
+        plt.plot(np.real(np.fft.fftshift(np.fft.fft(data))))
+        plt.title("Wav fourier")
+        plt.show()
+    return
+
+def plotSpectrogram():
+    if processing_done:
+        plt.ion()
+        plt.figure(2, figsize=(8, 8))
+        plt.specgram(data)
+        plt.title("Spectrogram")
+        plt.show()
+    return
+    
+def plotImage():
+    if processing_done:
+        plt.ion()
+        plt.figure(3, figsize=(24, 16))
+        plt.imshow(image, aspect=image.shape[1] / image.shape[0] * 0.8)
+        plt.title(f"{input_file}, {str(original_sample_rate)}Hz, ({str(sample_rate)}), {str(start)}-{str(end)}s, {str(image.shape[1])}x{str(image.shape[0])}, {str(brightness)}, {str(contrast)}")
+        plt.show()
+    return
+
+def plotImageFourierPre():
+    if processing_done:
+        if filtering_done:
+            plt.ion()
+            plt.figure(4, figsize=(8, 8))
+            plt.title("Image fourier real")
+            for c in range(image.shape[2]):
+                plt.imshow(np.log10(np.abs(np.real(image_fourier_pre))), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+            plt.figure(5, figsize=(8, 8))
+            plt.title("Image fourier imaginary")
+            for c in range(image.shape[2]):
+                plt.imshow(np.log10(np.abs(np.imag(image_fourier_pre))), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+            plt.show()
+    return
+
+def plotImageFourierPost():
+    if processing_done:
+        plt.ion()
+        plt.figure(6, figsize=(8, 8))
+        for c in range(image.shape[2]):
+            image_fourier_post = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+            plt.imshow(np.log(abs(image_fourier_post)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
+        plt.title("Image fourier")
+        plt.show()
+    return
+
 # --- UI updating ---
 
 def updateText(element, str):
@@ -607,74 +697,6 @@ def setAspectRatio(value):
     if value == "" or value == "." or value == "-":
         value = 1
     aspect_ratio = float(value)
-    return
-
-# --- Plots ---
-
-def plotWav():
-    if processing_done:
-        plt.ion()
-        plt.figure(0, figsize=(24, 8))
-        plt.plot(data)
-        plt.plot(amplitude)
-        plt.axhline(y=average_amplitude, color='r', linestyle='-')
-        plt.xlabel("Sample")
-        plt.ylabel("Amplitude")
-        plt.title(f"{input_file}, {str(original_sample_rate)}Hz, ({str(sample_rate)}), {str(start)}-{str(end)}s")
-        plt.show()
-    return
-
-def plotWavFourier():
-    if processing_done:
-        plt.ion()
-        plt.figure(1, figsize=(8, 8))
-        plt.plot(np.real(np.fft.fftshift(np.fft.fft(data))))
-        plt.title("Wav fourier")
-        plt.show()
-    return
-
-def plotSpectrogram():
-    if processing_done:
-        plt.ion()
-        plt.figure(2, figsize=(8, 8))
-        plt.specgram(data)
-        plt.title("Spectrogram")
-        plt.show()
-    return
-    
-def plotImage():
-    if processing_done:
-        plt.ion()
-        plt.figure(3, figsize=(24, 16))
-        plt.imshow(image, aspect=image.shape[1] / image.shape[0] * 0.8)
-        plt.title(f"{input_file}, {str(original_sample_rate)}Hz, ({str(sample_rate)}), {str(start)}-{str(end)}s, {str(image.shape[1])}x{str(image.shape[0])}, {str(brightness)}, {str(contrast)}")
-        plt.show()
-    return
-
-def plotImageFourierPre():
-    if processing_done:
-        if filtering_done:
-            plt.ion()
-            plt.figure(4, figsize=(8, 8))
-            plt.title("Image fourier real")
-            for c in range(image.shape[2]):
-                plt.imshow(np.log10(np.abs(np.real(image_fourier_pre))), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
-            plt.figure(5, figsize=(8, 8))
-            plt.title("Image fourier imaginary")
-            for c in range(image.shape[2]):
-                plt.imshow(np.log10(np.abs(np.imag(image_fourier_pre))), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
-            plt.show()
-    return
-
-def plotImageFourierPost():
-    if processing_done:
-        plt.ion()
-        plt.figure(6, figsize=(8, 8))
-        for c in range(image.shape[2]):
-            image_fourier_post = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
-            plt.imshow(np.log(abs(image_fourier_post)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
-        plt.title("Image fourier")
-        plt.show()
     return
 
 # --- Event listeners ---
