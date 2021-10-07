@@ -496,7 +496,7 @@ def signalToNoise(amplitude):
     return SNR
 
 def displayInfo():
-    updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)} s,  sample_rate: {sample_rate} Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)} dB")
+    updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)}s,  sample_rate: {sample_rate}Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
     return
 
 def displayImage(image):
