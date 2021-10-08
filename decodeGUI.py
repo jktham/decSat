@@ -370,6 +370,12 @@ def resample(data, sample_rate, resample_factor, resample_rate):
     # data = signal.resample(data, int(data.shape[0] / sample_rate) * 20800)
     # data = signal.decimate(data, 5)
     # sample_rate = resample_rate
+
+    # coef = 20800 / sample_rate
+    # samples = int(coef * len(data))
+    # data = signal.resample(data, samples)
+    # sample_rate = 20800
+
     data = data[::resample_factor]
     sample_rate = int(sample_rate / resample_factor)
     return data, sample_rate
@@ -425,21 +431,14 @@ def generateImage(amplitude, sample_rate, average_amplitude):
                 break
     return image
 
-def generateThermalImage(image):
-    # image = cv2.applyColorMap(image[:, :, 0], cv2.COLORMAP_JET)
-    for y in range(height):
-        for x in range(width):
-            image[y, x, 0] = image[y, x, 0]
-            image[y, x, 1] = image[y, x, 1]
-            image[y, x, 2] = image[y, x, 2]
-    return image
-
 def applyOffset(image, offset):
     for y in range(height):
         image[y] = np.roll(image[y], int(offset*width), axis=0)
     return image
 
 def resync(image):
+    side_a = np.zeros(height)
+    side_b = np.zeros(height)
     sync_pos = np.zeros(height)
     start_pos = 0
     count_pos = 0
@@ -476,6 +475,10 @@ def resync(image):
 
     for y in range(height):
         image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
+        side_a[y] = np.sum(image[y, :2755, 0])
+        side_b[y] = np.sum(image[y, 2756:, 0])
+        if side_a[y] > side_b[y]:
+            image[y] = np.roll(image[y], 2756, axis=0)
     return image
 
 def fourierFilter(image):
