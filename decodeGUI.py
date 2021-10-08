@@ -191,17 +191,6 @@ resync_checkbox.move(180, 710)
 resync_checkbox.resize(40, 40)
 resync_checkbox.show()
 
-thermal_image_label = QLabel("Thermal image", window)
-thermal_image_label.move(10, 760)
-thermal_image_label.resize(160, 40)
-thermal_image_label.show()
-
-thermal_image_checkbox = QCheckBox(window)
-thermal_image_checkbox.setChecked(False)
-thermal_image_checkbox.move(180, 760)
-thermal_image_checkbox.resize(40, 40)
-thermal_image_checkbox.show()
-
 
 process_button = QPushButton("Process file", window)
 process_button.move(10, 1050)
@@ -243,6 +232,11 @@ plot_image_fourier_post_button = QPushButton("Plot fourier (post)", window)
 plot_image_fourier_post_button.move(1590, 260)
 plot_image_fourier_post_button.resize(200, 40)
 plot_image_fourier_post_button.show()
+
+plot_thermal_image_button = QPushButton("Plot thermal image", window)
+plot_thermal_image_button.move(1590, 310)
+plot_thermal_image_button.resize(200, 40)
+plot_thermal_image_button.show()
 
 
 height_correction_checkbox = QCheckBox(window)
@@ -309,12 +303,12 @@ ch_g = 1
 ch_b = 1
 
 processing_done = False
-filtering_done = False
+fourier_done = False
 
 def decode():
-    global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, filtering_done
+    global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, fourier_done
     processing_done = False
-    filtering_done = False
+    fourier_done = False
     time_start = time.time()
 
     if input_file == "":
@@ -332,12 +326,12 @@ def decode():
     updateText(process_label, "Cropping data")
     data = crop(data, start, end, sample_rate)
 
-    updateText(process_label, "Filtering data (High pass)")
     if high_pass_filter_checkbox.isChecked():
+        updateText(process_label, "Filtering data (High pass)")
         data = highPassFilter(data)
 
     updateText(process_label, "Generating amplitude envelope")
-    amplitude = envelope(data)
+    amplitude = getEnvelope(data)
 
     updateText(process_label, "Calculating average amplitude")
     average_amplitude = getAverageAmplitude(amplitude)
@@ -348,17 +342,14 @@ def decode():
     updateText(process_label, "Offsetting image")
     image = applyOffset(image, offset)
 
-    updateText(process_label, "Resyncing image")
     if resync_checkbox.isChecked():
+        updateText(process_label, "Resyncing image")
         image = resync(image)
 
-    updateText(process_label, "Filtering image (Fourier)")
     if fourier_filter_checkbox.isChecked():
+        updateText(process_label, "Filtering image (Fourier)")
         image = fourierFilter(image)
-
-    updateText(process_label, "Generating thermal image")
-    if thermal_image_checkbox.isChecked():
-        image = generateThermalImage(image)
+        fourier_done = True
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
     processing_done = True
@@ -392,13 +383,12 @@ def crop(data, start, end, sample_rate):
 
 def highPassFilter(data):
     passes = 1
-    if high_pass_filter_checkbox.isChecked():
-        hpf = signal.firwin(101, 1200, fs=sample_rate, pass_zero=False)
-        for i in range(passes):
-            data = signal.lfilter(hpf, [1.0], data)
+    hpf = signal.firwin(101, 1200, fs=sample_rate, pass_zero=False)
+    for i in range(passes):
+        data = signal.lfilter(hpf, [1.0], data)
     return data
 
-def envelope(data):
+def getEnvelope(data):
     amplitude = np.abs(signal.hilbert(data))
     return amplitude
 
@@ -436,7 +426,12 @@ def generateImage(amplitude, sample_rate, average_amplitude):
     return image
 
 def generateThermalImage(image):
-    image = cv2.applyColorMap(image[:, :, 0], cv2.COLORMAP_JET)
+    # image = cv2.applyColorMap(image[:, :, 0], cv2.COLORMAP_JET)
+    for y in range(height):
+        for x in range(width):
+            image[y, x, 0] = image[y, x, 0]
+            image[y, x, 1] = image[y, x, 1]
+            image[y, x, 2] = image[y, x, 2]
     return image
 
 def applyOffset(image, offset):
@@ -445,70 +440,67 @@ def applyOffset(image, offset):
     return image
 
 def resync(image):
-    if resync_checkbox.isChecked():
-        sync_pos = np.zeros(height)
-        start_pos = 0
-        count_pos = 0
+    sync_pos = np.zeros(height)
+    start_pos = 0
+    count_pos = 0
 
-        for y in range(height):
+    for y in range(height):
+        if sync_pos[y-1] > 0:
+            start_pos = abs(int(sync_pos[y-1] - 100))
+        for x in range(start_pos, width+start_pos):
+            if x >= width:
+                x = x-width
+            dark_sum = 0
+            bright_sum = 0
+
+            for k in range(130):
+                if x+k < width:
+                    dark_sum += image[y, x+k, 0]
+                else:
+                    dark_sum += image[y, x-k, 0]
+                if x+k+width/2 < width:
+                    bright_sum += image[y, int(x+k+width/2), 0]
+                else:
+                    bright_sum += image[y, int(x+k-width/2), 0]
+
+            if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
+                sync_pos[y] = x
+                count_pos += 1
+                updateText(process_label, f"Resyncing image ({y}/{int(height)}, s {int(sync_pos[y])}, {int(count_pos)})")
+                break
+
+        if sync_pos[y] == 0:
             if sync_pos[y-1] > 0:
-                start_pos = abs(int(sync_pos[y-1] - 100))
-            for x in range(start_pos, width+start_pos):
-                if x >= width:
-                    x = x-width
-                dark_sum = 0
-                bright_sum = 0
+                sync_pos[y] = sync_pos[y-1]
+            updateText(process_label, f"Resyncing image ({y}/{int(height)}, f {int(sync_pos[y])}, {int(count_pos)})")
 
-                for k in range(130):
-                    if x+k < width:
-                        dark_sum += image[y, x+k, 0]
-                    else:
-                        dark_sum += image[y, x-k, 0]
-                    if x+k+width/2 < width:
-                        bright_sum += image[y, int(x+k+width/2), 0]
-                    else:
-                        bright_sum += image[y, int(x+k-width/2), 0]
-
-                if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
-                    sync_pos[y] = x
-                    count_pos += 1
-                    updateText(process_label, f"Resyncing image ({y}/{int(height)}, s {int(sync_pos[y])}, {int(count_pos)})")
-                    break
-
-            if sync_pos[y] == 0:
-                if sync_pos[y-1] > 0:
-                    sync_pos[y] = sync_pos[y-1]
-                updateText(process_label, f"Resyncing image ({y}/{int(height)}, f {int(sync_pos[y])}, {int(count_pos)})")
-
-        for y in range(height):
-            image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
+    for y in range(height):
+        image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
     return image
 
 def fourierFilter(image):
-    global filtering_done, image_fourier_pre
-    if fourier_filter_checkbox.isChecked():
-        for c in range(image.shape[2]):
-            image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
-            for i in range(image_fourier_pre.shape[0]):
-                for j in range(image_fourier_pre.shape[1]):
-                    # if 1525 < j < 1575 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 3925 < j < 3975 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 5100 < j < 5200 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 300 < j < 400 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    if 1525 < j < 1575:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 3925 < j < 3975:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 5100 < j < 5200:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 300 < j < 400:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-            image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
-        filtering_done = True
+    global image_fourier_pre
+    for c in range(image.shape[2]):
+        image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+        for i in range(image_fourier_pre.shape[0]):
+            for j in range(image_fourier_pre.shape[1]):
+                # if 1525 < j < 1575 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                # if 3925 < j < 3975 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                # if 5100 < j < 5200 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                # if 300 < j < 400 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                if 1525 < j < 1575:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                if 3925 < j < 3975:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                if 5100 < j < 5200:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                if 300 < j < 400:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+        image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
     return image
 
 def signalToNoise(amplitude):
@@ -588,7 +580,7 @@ def plotImage():
 
 def plotImageFourierPre():
     if processing_done:
-        if filtering_done:
+        if fourier_done:
             plt.ion()
             plt.figure(4, figsize=(8, 8))
             plt.title("Image fourier real")
@@ -609,6 +601,22 @@ def plotImageFourierPost():
             image_fourier_post = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
             plt.imshow(np.log(abs(image_fourier_post)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
         plt.title("Image fourier")
+        plt.show()
+    return
+
+def plotThermalImage():
+    if processing_done:
+        plt.ion()
+        plt.figure(7, figsize=(24, 16))
+        # colormap = plt.get_cmap("inferno")
+        # thermal_image = (colormap(image) * 2**16).astype(np.uint16)[:,:,:3]
+        # thermal_image = cv2.cvtColor(thermal_image, cv2.COLOR_RGB2BGR)
+        # # thermal_image = cv2.applyColorMap(image, cv2.COLORMAP_JET)
+        thermal_image = image[:,:,0]
+        plt.imshow(thermal_image, aspect=thermal_image.shape[1] / thermal_image.shape[0] * 0.8, cmap="jet")
+        plt.clim(100, 255)
+        plt.colorbar()
+        plt.title("Thermal image")
         plt.show()
     return
 
@@ -710,6 +718,7 @@ plot_spectrogram_button.clicked.connect(plotSpectrogram)
 plot_image_button.clicked.connect(plotImage)
 plot_image_fourier_pre_button.clicked.connect(plotImageFourierPre)
 plot_image_fourier_post_button.clicked.connect(plotImageFourierPost)
+plot_thermal_image_button.clicked.connect(plotThermalImage)
 
 start_entry.textChanged.connect(setStart)
 end_entry.textChanged.connect(setEnd)
