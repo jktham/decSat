@@ -332,8 +332,8 @@ def decode():
     updateText(process_label, "Cropping data")
     data = crop(data, start, end, sample_rate)
 
-    updateText(process_label, "Filtering data (High pass)")
     if high_pass_filter_checkbox.isChecked():
+        updateText(process_label, "Filtering data (High pass)")
         data = highPassFilter(data)
 
     updateText(process_label, "Generating amplitude envelope")
@@ -348,16 +348,16 @@ def decode():
     updateText(process_label, "Offsetting image")
     image = applyOffset(image, offset)
 
-    updateText(process_label, "Resyncing image")
     if resync_checkbox.isChecked():
+        updateText(process_label, "Resyncing image")
         image = resync(image)
 
-    updateText(process_label, "Filtering image (Fourier)")
     if fourier_filter_checkbox.isChecked():
+        updateText(process_label, "Filtering image (Fourier)")
         image = fourierFilter(image)
 
-    updateText(process_label, "Generating thermal image")
     if thermal_image_checkbox.isChecked():
+        updateText(process_label, "Generating thermal image")
         image = generateThermalImage(image)
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
@@ -392,10 +392,9 @@ def crop(data, start, end, sample_rate):
 
 def highPassFilter(data):
     passes = 1
-    if high_pass_filter_checkbox.isChecked():
-        hpf = signal.firwin(101, 1200, fs=sample_rate, pass_zero=False)
-        for i in range(passes):
-            data = signal.lfilter(hpf, [1.0], data)
+    hpf = signal.firwin(101, 1200, fs=sample_rate, pass_zero=False)
+    for i in range(passes):
+        data = signal.lfilter(hpf, [1.0], data)
     return data
 
 def envelope(data):
@@ -445,70 +444,68 @@ def applyOffset(image, offset):
     return image
 
 def resync(image):
-    if resync_checkbox.isChecked():
-        sync_pos = np.zeros(height)
-        start_pos = 0
-        count_pos = 0
+    sync_pos = np.zeros(height)
+    start_pos = 0
+    count_pos = 0
 
-        for y in range(height):
+    for y in range(height):
+        if sync_pos[y-1] > 0:
+            start_pos = abs(int(sync_pos[y-1] - 100))
+        for x in range(start_pos, width+start_pos):
+            if x >= width:
+                x = x-width
+            dark_sum = 0
+            bright_sum = 0
+
+            for k in range(130):
+                if x+k < width:
+                    dark_sum += image[y, x+k, 0]
+                else:
+                    dark_sum += image[y, x-k, 0]
+                if x+k+width/2 < width:
+                    bright_sum += image[y, int(x+k+width/2), 0]
+                else:
+                    bright_sum += image[y, int(x+k-width/2), 0]
+
+            if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
+                sync_pos[y] = x
+                count_pos += 1
+                updateText(process_label, f"Resyncing image ({y}/{int(height)}, s {int(sync_pos[y])}, {int(count_pos)})")
+                break
+
+        if sync_pos[y] == 0:
             if sync_pos[y-1] > 0:
-                start_pos = abs(int(sync_pos[y-1] - 100))
-            for x in range(start_pos, width+start_pos):
-                if x >= width:
-                    x = x-width
-                dark_sum = 0
-                bright_sum = 0
+                sync_pos[y] = sync_pos[y-1]
+            updateText(process_label, f"Resyncing image ({y}/{int(height)}, f {int(sync_pos[y])}, {int(count_pos)})")
 
-                for k in range(130):
-                    if x+k < width:
-                        dark_sum += image[y, x+k, 0]
-                    else:
-                        dark_sum += image[y, x-k, 0]
-                    if x+k+width/2 < width:
-                        bright_sum += image[y, int(x+k+width/2), 0]
-                    else:
-                        bright_sum += image[y, int(x+k-width/2), 0]
-
-                if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
-                    sync_pos[y] = x
-                    count_pos += 1
-                    updateText(process_label, f"Resyncing image ({y}/{int(height)}, s {int(sync_pos[y])}, {int(count_pos)})")
-                    break
-
-            if sync_pos[y] == 0:
-                if sync_pos[y-1] > 0:
-                    sync_pos[y] = sync_pos[y-1]
-                updateText(process_label, f"Resyncing image ({y}/{int(height)}, f {int(sync_pos[y])}, {int(count_pos)})")
-
-        for y in range(height):
-            image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
+    for y in range(height):
+        image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
     return image
 
 def fourierFilter(image):
     global filtering_done, image_fourier_pre
-    if fourier_filter_checkbox.isChecked():
-        for c in range(image.shape[2]):
-            image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
-            for i in range(image_fourier_pre.shape[0]):
-                for j in range(image_fourier_pre.shape[1]):
-                    # if 1525 < j < 1575 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 3925 < j < 3975 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 5100 < j < 5200 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    # if 300 < j < 400 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
-                    #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
-                    if 1525 < j < 1575:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 3925 < j < 3975:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 5100 < j < 5200:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-                    if 300 < j < 400:
-                        image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
-            image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
-        filtering_done = True
+    for c in range(image.shape[2]):
+        image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
+        for i in range(image_fourier_pre.shape[0]):
+            for j in range(image_fourier_pre.shape[1]):
+                # if 1525 < j < 1575 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                # if 3925 < j < 3975 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                # if 5100 < j < 5200 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                # if 300 < j < 400 and np.abs(np.real(image_fourier_pre[i, j])) > 10 ** 5:
+                #     image_fourier_pre[i, j] = complex(10 ** 4, 10 ** 4)
+                if 1525 < j < 1575:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                if 3925 < j < 3975:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                if 5100 < j < 5200:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+                if 300 < j < 400:
+                    image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
+        image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
+    filtering_done = True
     return image
 
 def signalToNoise(amplitude):
