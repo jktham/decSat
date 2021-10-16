@@ -191,17 +191,6 @@ resync_checkbox.move(180, 710)
 resync_checkbox.resize(40, 40)
 resync_checkbox.show()
 
-thermal_image_label = QLabel("Thermal image", window)
-thermal_image_label.move(10, 760)
-thermal_image_label.resize(160, 40)
-thermal_image_label.show()
-
-thermal_image_checkbox = QCheckBox(window)
-thermal_image_checkbox.setChecked(False)
-thermal_image_checkbox.move(180, 760)
-thermal_image_checkbox.resize(40, 40)
-thermal_image_checkbox.show()
-
 
 process_button = QPushButton("Process file", window)
 process_button.move(10, 1050)
@@ -243,6 +232,11 @@ plot_image_fourier_post_button = QPushButton("Plot fourier (post)", window)
 plot_image_fourier_post_button.move(1590, 260)
 plot_image_fourier_post_button.resize(200, 40)
 plot_image_fourier_post_button.show()
+
+plot_thermal_image_button = QPushButton("Plot thermal image", window)
+plot_thermal_image_button.move(1590, 310)
+plot_thermal_image_button.resize(200, 40)
+plot_thermal_image_button.show()
 
 
 height_correction_checkbox = QCheckBox(window)
@@ -309,12 +303,12 @@ ch_g = 1
 ch_b = 1
 
 processing_done = False
-filtering_done = False
+fourier_done = False
 
 def decode():
-    global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, filtering_done
+    global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, fourier_done
     processing_done = False
-    filtering_done = False
+    fourier_done = False
     time_start = time.time()
 
     if input_file == "":
@@ -337,7 +331,7 @@ def decode():
         data = highPassFilter(data)
 
     updateText(process_label, "Generating amplitude envelope")
-    amplitude = envelope(data)
+    amplitude = getEnvelope(data)
 
     updateText(process_label, "Calculating average amplitude")
     average_amplitude = getAverageAmplitude(amplitude)
@@ -355,10 +349,7 @@ def decode():
     if fourier_filter_checkbox.isChecked():
         updateText(process_label, "Filtering image (Fourier)")
         image = fourierFilter(image)
-
-    if thermal_image_checkbox.isChecked():
-        updateText(process_label, "Generating thermal image")
-        image = generateThermalImage(image)
+        fourier_done = True
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
     processing_done = True
@@ -379,6 +370,12 @@ def resample(data, sample_rate, resample_factor, resample_rate):
     # data = signal.resample(data, int(data.shape[0] / sample_rate) * 20800)
     # data = signal.decimate(data, 5)
     # sample_rate = resample_rate
+
+    # coef = 20800 / sample_rate
+    # samples = int(coef * len(data))
+    # data = signal.resample(data, samples)
+    # sample_rate = 20800
+
     data = data[::resample_factor]
     sample_rate = int(sample_rate / resample_factor)
     return data, sample_rate
@@ -397,7 +394,7 @@ def highPassFilter(data):
         data = signal.lfilter(hpf, [1.0], data)
     return data
 
-def envelope(data):
+def getEnvelope(data):
     amplitude = np.abs(signal.hilbert(data))
     return amplitude
 
@@ -434,16 +431,14 @@ def generateImage(amplitude, sample_rate, average_amplitude):
                 break
     return image
 
-def generateThermalImage(image):
-    image = cv2.applyColorMap(image[:, :, 0], cv2.COLORMAP_JET)
-    return image
-
 def applyOffset(image, offset):
     for y in range(height):
         image[y] = np.roll(image[y], int(offset*width), axis=0)
     return image
 
 def resync(image):
+    side_a = np.zeros(height)
+    side_b = np.zeros(height)
     sync_pos = np.zeros(height)
     start_pos = 0
     count_pos = 0
@@ -480,10 +475,14 @@ def resync(image):
 
     for y in range(height):
         image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
+        side_a[y] = np.sum(image[y, :2755, 0])
+        side_b[y] = np.sum(image[y, 2756:, 0])
+        if side_a[y] > side_b[y]:
+            image[y] = np.roll(image[y], 2756, axis=0)
     return image
 
 def fourierFilter(image):
-    global filtering_done, image_fourier_pre
+    global image_fourier_pre, fourier_done
     for c in range(image.shape[2]):
         image_fourier_pre = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
         for i in range(image_fourier_pre.shape[0]):
@@ -505,7 +504,7 @@ def fourierFilter(image):
                 if 300 < j < 400:
                     image_fourier_pre[i, j] = complex(10 ** 1, 10 ** 1)
         image[:, :, c] = np.real(np.fft.ifft2(np.fft.ifftshift(image_fourier_pre)))
-    filtering_done = True
+    fourier_done = True
     return image
 
 def signalToNoise(amplitude):
@@ -585,7 +584,7 @@ def plotImage():
 
 def plotImageFourierPre():
     if processing_done:
-        if filtering_done:
+        if fourier_done:
             plt.ion()
             plt.figure(4, figsize=(8, 8))
             plt.title("Image fourier real")
@@ -606,6 +605,22 @@ def plotImageFourierPost():
             image_fourier_post = np.fft.fftshift(np.fft.fft2(image[:, :, c]))
             plt.imshow(np.log(abs(image_fourier_post)), cmap="gray", aspect=image.shape[1] / image.shape[0] * 0.8)
         plt.title("Image fourier")
+        plt.show()
+    return
+
+def plotThermalImage():
+    if processing_done:
+        plt.ion()
+        plt.figure(7, figsize=(24, 16))
+        # colormap = plt.get_cmap("inferno")
+        # thermal_image = (colormap(image) * 2**16).astype(np.uint16)[:,:,:3]
+        # thermal_image = cv2.cvtColor(thermal_image, cv2.COLOR_RGB2BGR)
+        # # thermal_image = cv2.applyColorMap(image, cv2.COLORMAP_JET)
+        thermal_image = image[:,:,0]
+        plt.imshow(thermal_image, aspect=thermal_image.shape[1] / thermal_image.shape[0] * 0.8, cmap="jet")
+        plt.clim(100, 255)
+        plt.colorbar()
+        plt.title("Thermal image")
         plt.show()
     return
 
@@ -707,6 +722,7 @@ plot_spectrogram_button.clicked.connect(plotSpectrogram)
 plot_image_button.clicked.connect(plotImage)
 plot_image_fourier_pre_button.clicked.connect(plotImageFourierPre)
 plot_image_fourier_post_button.clicked.connect(plotImageFourierPost)
+plot_thermal_image_button.clicked.connect(plotThermalImage)
 
 start_entry.textChanged.connect(setStart)
 end_entry.textChanged.connect(setEnd)
