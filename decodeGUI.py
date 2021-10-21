@@ -196,6 +196,7 @@ process_button = QPushButton("Process file", window)
 process_button.move(10, 1050)
 process_button.resize(200, 40)
 process_button.show()
+process_button.setEnabled(False)
 
 process_label = QLabel("", window)
 process_label.move(220, 1050)
@@ -203,40 +204,52 @@ process_label.resize(600, 40)
 process_label.show()
 
 
+sat_schedule_button = QPushButton("Sat schedule", window)
+sat_schedule_button.move(1590, 10)
+sat_schedule_button.resize(200, 40)
+sat_schedule_button.show()
+
 plot_wav_button = QPushButton("Plot wav", window)
-plot_wav_button.move(1590, 10)
+plot_wav_button.move(1590, 60)
 plot_wav_button.resize(200, 40)
 plot_wav_button.show()
+plot_wav_button.setEnabled(False)
 
 plot_wav_fourier_button = QPushButton("Plot wav fourier", window)
-plot_wav_fourier_button.move(1590, 60)
+plot_wav_fourier_button.move(1590, 110)
 plot_wav_fourier_button.resize(200, 40)
 plot_wav_fourier_button.show()
+plot_wav_fourier_button.setEnabled(False)
 
 plot_spectrogram_button = QPushButton("Plot spectrogram", window)
-plot_spectrogram_button.move(1590, 110)
+plot_spectrogram_button.move(1590, 160)
 plot_spectrogram_button.resize(200, 40)
 plot_spectrogram_button.show()
+plot_spectrogram_button.setEnabled(False)
 
 plot_image_button = QPushButton("Plot image", window)
-plot_image_button.move(1590, 160)
+plot_image_button.move(1590, 210)
 plot_image_button.resize(200, 40)
 plot_image_button.show()
+plot_image_button.setEnabled(False)
 
 plot_image_fourier_pre_button = QPushButton("Plot fourier (pre)", window)
-plot_image_fourier_pre_button.move(1590, 210)
+plot_image_fourier_pre_button.move(1590, 260)
 plot_image_fourier_pre_button.resize(200, 40)
 plot_image_fourier_pre_button.show()
+plot_image_fourier_pre_button.setEnabled(False)
 
 plot_image_fourier_post_button = QPushButton("Plot fourier (post)", window)
-plot_image_fourier_post_button.move(1590, 260)
+plot_image_fourier_post_button.move(1590, 310)
 plot_image_fourier_post_button.resize(200, 40)
 plot_image_fourier_post_button.show()
+plot_image_fourier_post_button.setEnabled(False)
 
 plot_thermal_image_button = QPushButton("Plot thermal image", window)
-plot_thermal_image_button.move(1590, 310)
+plot_thermal_image_button.move(1590, 360)
 plot_thermal_image_button.resize(200, 40)
 plot_thermal_image_button.show()
+plot_thermal_image_button.setEnabled(False)
 
 
 height_correction_checkbox = QCheckBox(window)
@@ -272,6 +285,7 @@ save_button = QPushButton("Save image", window)
 save_button.move(1590, 1050)
 save_button.resize(200, 40)
 save_button.show()
+save_button.setEnabled(False)
 
 
 image_label = QLabel("", window)
@@ -309,13 +323,18 @@ def decode():
     global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, fourier_done
     processing_done = False
     fourier_done = False
-    time_start = time.time()
-
-    if input_file == "":
-        updateText(process_label, "No file!")
-        return
+    time_start = time.time()    
 
     updateText(info_label, "")
+    process_button.setEnabled(False)
+    plot_wav_button.setEnabled(False)
+    plot_wav_fourier_button.setEnabled(False)
+    plot_spectrogram_button.setEnabled(False)
+    plot_image_button.setEnabled(False)
+    plot_image_fourier_pre_button.setEnabled(False)
+    plot_image_fourier_post_button.setEnabled(False)
+    plot_thermal_image_button.setEnabled(False)
+    save_button.setEnabled(False)
 
     updateText(process_label, "Loading file")
     original_sample_rate, data = wav.read(input_file)
@@ -353,8 +372,19 @@ def decode():
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
     processing_done = True
+
     displayImage(image)
     displayInfo()
+    
+    process_button.setEnabled(True)
+    plot_wav_button.setEnabled(True)
+    plot_wav_fourier_button.setEnabled(True)
+    plot_spectrogram_button.setEnabled(True)
+    plot_image_button.setEnabled(True)
+    plot_image_fourier_pre_button.setEnabled(True)
+    plot_image_fourier_post_button.setEnabled(True)
+    plot_thermal_image_button.setEnabled(True)
+    save_button.setEnabled(True)
     return
 
 def selectFile():
@@ -362,8 +392,10 @@ def selectFile():
     input_file, check = QFileDialog.getOpenFileName(None, "Select File", "C:/Users/Jonas/projects/personal/matura/py/in", "WAV files (*.wav)")
     if check:
         updateText(select_file_label, input_file)
+        process_button.setEnabled(True)
     else:
         updateText(select_file_label, "")
+        process_button.setEnabled(False)
     return
 
 def resample(data, sample_rate, resample_factor, resample_rate):
@@ -624,6 +656,14 @@ def plotThermalImage():
         plt.show()
     return
 
+def showSatSchedule():
+    global sat_schedule_window
+    sat_schedule_window = QWidget()
+    sat_schedule_window.resize(900, 900)
+    sat_schedule_window.setWindowTitle("Sat schedule")
+    sat_schedule_window.show()
+    return
+
 # --- UI updating ---
 
 def updateText(element, str):
@@ -723,6 +763,7 @@ plot_image_button.clicked.connect(plotImage)
 plot_image_fourier_pre_button.clicked.connect(plotImageFourierPre)
 plot_image_fourier_post_button.clicked.connect(plotImageFourierPost)
 plot_thermal_image_button.clicked.connect(plotThermalImage)
+sat_schedule_button.clicked.connect(showSatSchedule)
 
 start_entry.textChanged.connect(setStart)
 end_entry.textChanged.connect(setEnd)
