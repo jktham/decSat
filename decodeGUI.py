@@ -10,6 +10,8 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
 from skimage import color, transform
+import requests
+from datetime import datetime
 
 # --- UI setup ---
 
@@ -311,6 +313,13 @@ sat_refresh_label = QLabel("Last refreshed: ", sat_window)
 sat_refresh_label.move(220, 10)
 sat_refresh_label.resize(400, 40)
 sat_refresh_label.show()
+
+sat_label = QLabel("", sat_window)
+sat_label.setAlignment(Qt.AlignTop)
+sat_label.setWordWrap(True)
+sat_label.move(10, 60)
+sat_label.resize(880, 800)
+sat_label.show()
 
 # --- Processing ---
 
@@ -670,9 +679,15 @@ def plotThermalImage():
         plt.show()
     return
 
-def showSatSchedule():
+def showSat():
     sat_window.show()
-    
+    refreshSat()
+    return
+
+def refreshSat():
+    sat_response = requests.get("http://api.open-notify.org/astros.json")
+    updateText(sat_label, str(sat_response.json()))
+    updateText(sat_refresh_label, "Last refreshed: " + str(datetime.now()))
     return
 
 # --- UI updating ---
@@ -774,7 +789,8 @@ plot_image_button.clicked.connect(plotImage)
 plot_image_fourier_pre_button.clicked.connect(plotImageFourierPre)
 plot_image_fourier_post_button.clicked.connect(plotImageFourierPost)
 plot_thermal_image_button.clicked.connect(plotThermalImage)
-sat_button.clicked.connect(showSatSchedule)
+sat_button.clicked.connect(showSat)
+sat_refresh_button.clicked.connect(refreshSat)
 
 start_entry.textChanged.connect(setStart)
 end_entry.textChanged.connect(setEnd)
