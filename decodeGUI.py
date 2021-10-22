@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import *
 from scipy import signal
 from skimage import color, transform
 import requests
+import json
 from datetime import datetime
 
 # --- UI setup ---
@@ -216,7 +217,7 @@ info_label.resize(1000, 40)
 info_label.show()
 
 
-sat_button = QPushButton("Sat schedule", main_window)
+sat_button = QPushButton("Sat passes", main_window)
 sat_button.move(1590, 10)
 sat_button.resize(200, 40)
 sat_button.show()
@@ -302,7 +303,7 @@ save_button.setEnabled(False)
 
 sat_window = QWidget()
 sat_window.resize(900, 900)
-sat_window.setWindowTitle("Sat schedule")
+sat_window.setWindowTitle("Satellite passes")
 
 sat_refresh_button = QPushButton("Refresh", sat_window)
 sat_refresh_button.move(10, 10)
@@ -338,6 +339,14 @@ height_multiplier = 2.65
 ch_r = 1
 ch_g = 1
 ch_b = 1
+
+sat_request_key = "87BT5R-78CLSF-NXGHQ8-4MOH"
+sat_request_id = [25338, 28654, 33591, 40069]
+sat_request_lat = 47.37
+sat_request_lng = 8.55
+sat_request_alt = 500
+sat_request_days = 10
+sat_request_mel = 20
 
 processing_done = False
 fourier_done = False
@@ -681,12 +690,19 @@ def plotThermalImage():
 
 def showSat():
     sat_window.show()
+    app.processEvents()
     refreshSat()
     return
 
 def refreshSat():
-    sat_response = requests.get("http://api.open-notify.org/astros.json")
-    updateText(sat_label, str(sat_response.json()))
+    sat_response = [None] * len(sat_request_id)
+    sat_response_parse = [None] * len(sat_request_id)
+    for i in range(len(sat_request_id)):
+        sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
+        sat_response_parse[i] = sat_response[i].json()
+    print(sat_response_parse[0]["info"]["satname"])
+    print(sat_response_parse[0]["passes"][0]["startAz"])
+    updateText(sat_label, str(sat_response[0].json()))
     updateText(sat_refresh_label, "Last refreshed: " + str(datetime.now()))
     return
 
