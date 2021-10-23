@@ -1,0 +1,7 @@
+matplotlib==3.4.3
+numpy==1.21.2
+opencv_python==4.5.3.56
+PyQt5==5.15.5
+requests==2.26.0
+scikit-image==0.18.3
+scipy==1.7.1

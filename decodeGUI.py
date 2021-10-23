@@ -1,18 +1,18 @@
+import json
 import math
 import time
+from datetime import datetime
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import requests
 import scipy.io.wavfile as wav
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
 from skimage import color, transform
-import requests
-import json
-from datetime import datetime
 
 # --- UI setup ---
 
@@ -352,7 +352,7 @@ processing_done = False
 fourier_done = False
 
 def decode():
-    global data,original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, fourier_done
+    global data, original_sample_rate, sample_rate, amplitude, average_amplitude, image, processing_done, fourier_done
     processing_done = False
     fourier_done = False
     time_start = time.time()    
@@ -572,10 +572,10 @@ def fourierFilter(image):
     return image
 
 def signalToNoise(amplitude):
-    SD = amplitude.std(axis=0, ddof=0)
-    SNR = np.where(SD == 0, 0, average_amplitude / SD)
-    SNR = 20 * np.log10(abs(SNR))
-    return SNR
+    sd = amplitude.std(axis=0, ddof=0)
+    snr = np.where(sd == 0, 0, average_amplitude / sd)
+    snr = 20 * np.log10(abs(snr))
+    return snr
 
 def displayInfo():
     updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)}s,  sample_rate: {sample_rate}Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
@@ -700,10 +700,13 @@ def refreshSat():
     for i in range(len(sat_request_id)):
         sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
         sat_response_parse[i] = sat_response[i].json()
+    transactions = sat_response_parse[-1]["info"]["transactionscount"]
+    
     print(sat_response_parse[0]["info"]["satname"])
     print(sat_response_parse[0]["passes"][0]["startAz"])
+
+    updateText(sat_refresh_label, "Last refreshed: " + str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")) + " (" + str(transactions) + ")")
     updateText(sat_label, str(sat_response[0].json()))
-    updateText(sat_refresh_label, "Last refreshed: " + str(datetime.now()))
     return
 
 # --- UI updating ---
