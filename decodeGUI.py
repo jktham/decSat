@@ -347,6 +347,7 @@ sat_request_lng = 8.55
 sat_request_alt = 500
 sat_request_days = 10
 sat_request_mel = 20
+sat_transactions = 0
 
 processing_done = False
 fourier_done = False
@@ -691,22 +692,46 @@ def plotThermalImage():
 def showSat():
     sat_window.show()
     app.processEvents()
-    refreshSat()
+    if sat_transactions == 0:
+        refreshSat()
     return
 
 def refreshSat():
+    global sat_transactions
     sat_response = [None] * len(sat_request_id)
     sat_response_parse = [None] * len(sat_request_id)
 
     for i in range(len(sat_request_id)):
         sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
         sat_response_parse[i] = sat_response[i].json()
-    transactions = sat_response_parse[-1]["info"]["transactionscount"]
+
+    sat_length = [0] * len(sat_response_parse)
+
+    for i in range(len(sat_response_parse)):
+        for j in range(len(sat_response_parse) - i):
+            sat_length[i] += len(sat_response_parse[j]["passes"])
+    sat_length = sat_length[::-1]
+
+    sat_passes = [None] * sat_length[-1]
+    for i in range(sat_length[-1]):
+        for j in range(len(sat_length)):
+            if j == 0:
+                c = 0
+            else:
+                c = sat_length[j-1]
+            
+            if c <= i < sat_length[j]:
+                sat_passes[i] = sat_response_parse[j]["passes"][i - c]
+                sat_passes[i]["index"] = i
+                sat_passes[i]["satname"] = sat_response_parse[j]["info"]["satname"]
     
-    print(sat_response_parse[0]["info"]["satname"])
-    print(sat_response_parse[0]["passes"][0]["startAz"])
-    updateText(sat_refresh_label, f"Last refreshed: {str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(transactions)})")
-    updateText(sat_label, str(sat_response[0].json()))
+    sat_passes = sorted(sat_passes, key=lambda k: k["startUTC"])
+
+    sat_string = str(sat_passes)
+    
+    sat_transactions = sat_response_parse[-1]["info"]["transactionscount"]
+    updateText(sat_refresh_label, f"Last refreshed: {str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)})")
+    updateText(sat_label, sat_string)
     return
 
 # --- UI updating ---
