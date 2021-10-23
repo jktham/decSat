@@ -578,7 +578,7 @@ def signalToNoise(amplitude):
     return snr
 
 def displayInfo():
-    updateText(info_label, f"Image info: Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)}s,  sample_rate: {sample_rate}Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
+    updateText(info_label, f"Size: {width}x{height},  Length: {round(data.shape[0] / sample_rate, 2)}s,  SR: {sample_rate}Hz,  avAmp: {round(average_amplitude, 2)},  SNR: {round(signalToNoise(amplitude), 2)}dB")
     return
 
 def displayImage(image):
@@ -591,7 +591,7 @@ def displayImage(image):
 def saveImage():
     if processing_done:
         input_file_name = input_file.split("/")[-1].split(".")[-2]
-        path, check = QFileDialog.getSaveFileName(None, "Save Image", "C:/Users/Jonas/projects/personal/matura/py/out/"+input_file_name+".png", "PNGfile (*.png)")
+        path, check = QFileDialog.getSaveFileName(None, "Save Image", f"C:/Users/Jonas/projects/personal/matura/py/out/{input_file_name}.png", "PNGfile (*.png)")
         if check:
             if aspect_ratio_checkbox.isChecked():
                 resized_img = transform.resize(image, (int(width/aspect_ratio), width))
@@ -697,6 +697,7 @@ def showSat():
 def refreshSat():
     sat_response = [None] * len(sat_request_id)
     sat_response_parse = [None] * len(sat_request_id)
+
     for i in range(len(sat_request_id)):
         sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
         sat_response_parse[i] = sat_response[i].json()
@@ -704,8 +705,7 @@ def refreshSat():
     
     print(sat_response_parse[0]["info"]["satname"])
     print(sat_response_parse[0]["passes"][0]["startAz"])
-
-    updateText(sat_refresh_label, "Last refreshed: " + str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")) + " (" + str(transactions) + ")")
+    updateText(sat_refresh_label, f"Last refreshed: {str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(transactions)})")
     updateText(sat_label, str(sat_response[0].json()))
     return
 
