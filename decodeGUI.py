@@ -318,6 +318,7 @@ sat_refresh_label.show()
 sat_label = QLabel("", sat_window)
 sat_label.setAlignment(Qt.AlignTop)
 sat_label.setWordWrap(True)
+sat_label.setFont(QFont('Courier'))
 sat_label.move(10, 60)
 sat_label.resize(880, 800)
 sat_label.show()
@@ -726,12 +727,19 @@ def refreshSat():
                 sat_passes[i]["satname"] = sat_response_parse[j]["info"]["satname"]
     
     sat_passes = sorted(sat_passes, key=lambda k: k["startUTC"])
-
-    sat_string = str(sat_passes)
     
+    sat_string = ""
+    for i in range(len(sat_passes)):
+        sat_string_time = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%Y-%m-%d %H:%M:%S')}"
+        sat_string_mel = f"{format(sat_passes[i]['maxEl'], '.2f')} {sat_passes[i]['maxAzCompass']}{' ' * (3 - len(sat_passes[i]['maxAzCompass']))}"
+        sat_string_name = f"{sat_passes[i]['satname']}{' ' * (9 - len(sat_passes[i]['satname']))}"
+        sat_string += f"{sat_string_time}  -  {sat_string_mel}  -  {sat_string_name}  -  \n"
+    
+
     sat_transactions = sat_response_parse[-1]["info"]["transactionscount"]
     updateText(sat_refresh_label, f"Last refreshed: {str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)})")
     updateText(sat_label, sat_string)
+    sat_label.adjustSize()
     return
 
 # --- UI updating ---
