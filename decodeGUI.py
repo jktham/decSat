@@ -303,7 +303,7 @@ save_button.setEnabled(False)
 
 
 sat_window = QWidget()
-sat_window.resize(1300, 900)
+sat_window.resize(1400, 900)
 sat_window.setWindowTitle("Satellite passes")
 
 sat_refresh_button = QPushButton("Refresh", sat_window)
@@ -316,13 +316,50 @@ sat_refresh_label.move(220, 10)
 sat_refresh_label.resize(400, 40)
 sat_refresh_label.show()
 
+sat_lat_label = QLabel("lat", sat_window)
+sat_lat_label.move(10, 60)
+sat_lat_label.resize(100, 40)
+sat_lat_label.show()
+
+sat_lat_entry = QLineEdit("47.38", sat_window)
+sat_lat_entry.setValidator(QDoubleValidator())
+sat_lat_entry.setAlignment(Qt.AlignRight)
+sat_lat_entry.move(130, 60)
+sat_lat_entry.resize(80, 40)
+sat_lat_entry.show()
+
+sat_lng_label = QLabel("lng", sat_window)
+sat_lng_label.move(10, 110)
+sat_lng_label.resize(100, 40)
+sat_lng_label.show()
+
+sat_lng_entry = QLineEdit("8.54", sat_window)
+sat_lng_entry.setValidator(QDoubleValidator())
+sat_lng_entry.setAlignment(Qt.AlignRight)
+sat_lng_entry.move(130, 110)
+sat_lng_entry.resize(80, 40)
+sat_lng_entry.show()
+
+sat_tz_label = QLabel("tz", sat_window)
+sat_tz_label.move(10, 160)
+sat_tz_label.resize(100, 40)
+sat_tz_label.show()
+
+sat_tz_entry = QLineEdit("2.0", sat_window)
+sat_tz_entry.setValidator(QDoubleValidator())
+sat_tz_entry.setAlignment(Qt.AlignRight)
+sat_tz_entry.move(130, 160)
+sat_tz_entry.resize(80, 40)
+sat_tz_entry.show()
+
 sat_label = QLabel("", sat_window)
 sat_label.setAlignment(Qt.AlignTop)
 sat_label.setWordWrap(True)
 sat_label.setFont(QFont('Courier'))
 sat_label.setTextFormat(Qt.RichText)
-sat_label.move(10, 110)
-sat_label.resize(1280, 780)
+sat_label.setContentsMargins(8, 8, 8, 8)
+sat_label.move(220, 60)
+sat_label.resize(1170, 830)
 sat_label.show()
 
 sat_label_scroll = QScrollArea(sat_window)
@@ -330,8 +367,8 @@ sat_label_scroll.setWidgetResizable(True)
 sat_label_scroll.setWidget(sat_label)
 sat_label_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 sat_label_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-sat_label_scroll.move(10, 110)
-sat_label_scroll.resize(1280, 780)
+sat_label_scroll.move(220, 60)
+sat_label_scroll.resize(1170, 830)
 
 # --- Processing ---
 
@@ -351,13 +388,14 @@ ch_r = 1
 ch_g = 1
 ch_b = 1
 
-sat_request_key = "87BT5R-78CLSF-NXGHQ8-4MOH"
-sat_request_id = [25338, 28654, 33591, 40069]
-sat_request_lat = 47.37
-sat_request_lng = 8.55
-sat_request_alt = 500
-sat_request_days = 10
-sat_request_mel = 20
+sat_key = "87BT5R-78CLSF-NXGHQ8-4MOH"
+sat_id = [25338, 28654, 33591, 40069]
+sat_lat = 47.38
+sat_lng = 8.54
+sat_alt = 500
+sat_days = 10
+sat_mel = 20
+sat_tz = 2.0
 sat_transactions = 0
 
 processing_done = False
@@ -371,6 +409,7 @@ def decode():
 
     updateText(info_label, "")
     process_button.setEnabled(False)
+    updateText(process_button, "Processing")
     plot_wav_button.setEnabled(False)
     plot_wav_fourier_button.setEnabled(False)
     plot_spectrogram_button.setEnabled(False)
@@ -421,6 +460,7 @@ def decode():
     displayInfo()
     
     process_button.setEnabled(True)
+    updateText(process_button, "Process file")
     plot_wav_button.setEnabled(True)
     plot_wav_fourier_button.setEnabled(True)
     plot_spectrogram_button.setEnabled(True)
@@ -709,22 +749,24 @@ def showSat():
 
 def refreshSat():
     global sat_transactions
-    sat_response = [None] * len(sat_request_id)
-    sat_response_parse = [None] * len(sat_request_id)
+    sat_response = [None] * len(sat_id)
 
-    for i in range(len(sat_request_id)):
+    sat_refresh_button.setEnabled(False)
+    updateText(sat_refresh_button, "Refreshing")
+
+    for i in range(len(sat_id)):
         try:
-            sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
+            sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_id[i])}/{str(sat_lat)}/{str(sat_lng)}/{str(sat_alt)}/{str(sat_days)}/{str(sat_mel)}/&apiKey={sat_key}")
         except requests.exceptions.RequestException as e:
             updateText(sat_label, str(e))
             return
-        sat_response_parse[i] = sat_response[i].json()
+        sat_response[i] = sat_response[i].json()
 
-    sat_length = [0] * len(sat_response_parse)
+    sat_length = [0] * len(sat_response)
 
-    for i in range(len(sat_response_parse)):
-        for j in range(len(sat_response_parse) - i):
-            sat_length[i] += len(sat_response_parse[j]["passes"])
+    for i in range(len(sat_response)):
+        for j in range(len(sat_response) - i):
+            sat_length[i] += len(sat_response[j]["passes"])
     sat_length = sat_length[::-1]
 
     sat_passes = [None] * sat_length[-1]
@@ -735,15 +777,20 @@ def refreshSat():
             else:
                 c = sat_length[j-1]
             if c <= i < sat_length[j]:
-                sat_passes[i] = sat_response_parse[j]["passes"][i - c]
+                sat_passes[i] = sat_response[j]["passes"][i - c]
                 sat_passes[i]["index"] = i
-                sat_passes[i]["satname"] = sat_response_parse[j]["info"]["satname"]
+                sat_passes[i]["satname"] = sat_response[j]["info"]["satname"]
+
+    for i in range(len(sat_passes)):
+        sat_passes[i]["startUTC"] += int(3600 * sat_tz)
+        sat_passes[i]["maxUTC"] += int(3600 * sat_tz)
+        sat_passes[i]["endUTC"] += int(3600 * sat_tz)
 
     sat_passes = sorted(sat_passes, key=lambda k: k["startUTC"])
     
-    sat_names = [None] * len(sat_response_parse)
-    for i in range(len(sat_response_parse)):
-        sat_names[i] = sat_response_parse[i]["info"]["satname"]
+    sat_names = [None] * len(sat_response)
+    for i in range(len(sat_response)):
+        sat_names[i] = sat_response[i]["info"]["satname"]
     
     sat_string = ""
     for i in range(len(sat_passes)):
@@ -754,6 +801,11 @@ def refreshSat():
         sat_string_name = f"{sat_passes[i]['satname']}{'_' * (len(max(sat_names, key=len)) - len(sat_passes[i]['satname']))}"
         sat_string_az = f"{'_' * (6 - len(str(format(sat_passes[i]['startAz'], '.2f'))))}{format(sat_passes[i]['startAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['maxAz'], '.2f'))))}{format(sat_passes[i]['maxAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['endAz'], '.2f'))))}{format(sat_passes[i]['endAz'], '.2f')}"
         
+        if 90 < sat_passes[i]["startAz"] < 270:
+            sat_string_dir = "N"
+        else:
+            sat_string_dir = "S"
+
         sat_string_alpha = (sat_passes[i]['maxEl']-45)/45
         if sat_string_alpha < 0:
             sat_string_alpha = 0
@@ -761,11 +813,13 @@ def refreshSat():
 
         if datetime.utcfromtimestamp(sat_passes[i]['startUTC']).date() > datetime.utcfromtimestamp(sat_passes[i-1]['startUTC']).date():
             sat_string += "<br>"
-        sat_string += f"{sat_string_date}__{sat_string_time}____{sat_string_name}____<span style=\"background-color: rgba{sat_string_color}\">{sat_string_mel}</span>_{sat_string_melc}____{sat_string_az}<br>"
+        sat_string += f"{sat_string_date}__{sat_string_time}____{sat_string_name}____<span style=\"background-color: rgba{sat_string_color}\">{sat_string_mel}</span>_{sat_string_dir}_{sat_string_melc}____{sat_string_az}<br>"
     sat_string = sat_string.replace("_", "&nbsp;")
 
-    sat_transactions = sat_response_parse[-1]["info"]["transactionscount"]
-    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)})")
+    sat_transactions = sat_response[-1]["info"]["transactionscount"]
+    sat_refresh_button.setEnabled(True)
+    updateText(sat_refresh_button, "Refresh")
+    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)} tx)")
     updateText(sat_label, sat_string)
     sat_label.adjustSize()
     return
@@ -780,14 +834,14 @@ def updateText(element, str):
 def setStart(value):
     global start
     if value == "" or value == "." or value == "-":
-        value = 0
+        value = 0.0
     start = float(value)
     return
 
 def setEnd(value):
     global end
     if value == "" or value == "." or value == "-":
-        value = 0
+        value = 0.0
     end = float(value)
     return
 
@@ -814,7 +868,7 @@ def setResampleFactorSlider(value):
 def setBrightness(value):
     global brightness
     if value == "" or value == "." or value == "-":
-        value = 1
+        value = 1.0
     brightness = float(value)
     return
 
@@ -827,7 +881,7 @@ def setBrightnessSlider(value):
 def setContrast(value):
     global contrast
     if value == "" or value == "." or value == "-":
-        value = 1
+        value = 1.0
     contrast = float(value)
     return
 
@@ -840,7 +894,7 @@ def setContrastSlider(value):
 def setOffset(value):
     global offset
     if value == "" or value == "." or value == "-":
-        value = 0
+        value = 0.0
     offset = float(value)
     return
 
@@ -853,8 +907,29 @@ def setOffsetSlider(value):
 def setAspectRatio(value):
     global aspect_ratio
     if value == "" or value == "." or value == "-":
-        value = 1
+        value = 1.0
     aspect_ratio = float(value)
+    return
+
+def setSatLat(value):
+    global sat_lat
+    if value == "" or value == "." or value == "-":
+        value = 0.0
+    sat_lat = float(value)
+    return
+
+def setSatLng(value):
+    global sat_lng
+    if value == "" or value == "." or value == "-":
+        value = 0.0
+    sat_lng = float(value)
+    return
+    
+def setSatTz(value):
+    global sat_tz
+    if value == "" or value == "." or value == "-":
+        value = 0.0
+    sat_tz = float(value)
     return
 
 # --- Event listeners ---
@@ -880,6 +955,9 @@ brightness_entry.textChanged.connect(setBrightness)
 contrast_entry.textChanged.connect(setContrast)
 offset_entry.textChanged.connect(setOffset)
 aspect_ratio_entry.textChanged.connect(setAspectRatio)
+sat_lat_entry.textChanged.connect(setSatLat)
+sat_lng_entry.textChanged.connect(setSatLng)
+sat_tz_entry.textChanged.connect(setSatTz)
 
 resample_factor_slider.valueChanged.connect(setResampleFactor)
 brightness_slider.valueChanged.connect(setBrightnessSlider)
