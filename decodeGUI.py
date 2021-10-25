@@ -313,10 +313,10 @@ sat_refresh_button.show()
 
 sat_refresh_label = QLabel("", sat_window)
 sat_refresh_label.move(220, 10)
-sat_refresh_label.resize(400, 40)
+sat_refresh_label.resize(800, 40)
 sat_refresh_label.show()
 
-sat_lat_label = QLabel("lat", sat_window)
+sat_lat_label = QLabel("Latitude", sat_window)
 sat_lat_label.move(10, 60)
 sat_lat_label.resize(100, 40)
 sat_lat_label.show()
@@ -328,7 +328,7 @@ sat_lat_entry.move(130, 60)
 sat_lat_entry.resize(80, 40)
 sat_lat_entry.show()
 
-sat_lng_label = QLabel("lng", sat_window)
+sat_lng_label = QLabel("Longitude", sat_window)
 sat_lng_label.move(10, 110)
 sat_lng_label.resize(100, 40)
 sat_lng_label.show()
@@ -340,7 +340,7 @@ sat_lng_entry.move(130, 110)
 sat_lng_entry.resize(80, 40)
 sat_lng_entry.show()
 
-sat_tz_label = QLabel("tz", sat_window)
+sat_tz_label = QLabel("Timezone", sat_window)
 sat_tz_label.move(10, 160)
 sat_tz_label.resize(100, 40)
 sat_tz_label.show()
@@ -351,6 +351,52 @@ sat_tz_entry.setAlignment(Qt.AlignRight)
 sat_tz_entry.move(130, 160)
 sat_tz_entry.resize(80, 40)
 sat_tz_entry.show()
+
+sat_days_label = QLabel("Days", sat_window)
+sat_days_label.move(10, 210)
+sat_days_label.resize(100, 40)
+sat_days_label.show()
+
+sat_days_entry = QLineEdit("10", sat_window)
+sat_days_entry.setValidator(QIntValidator())
+sat_days_entry.setAlignment(Qt.AlignRight)
+sat_days_entry.move(130, 210)
+sat_days_entry.resize(80, 40)
+sat_days_entry.show()
+
+sat_days_slider = QSlider(sat_window)
+sat_days_slider.setOrientation(Qt.Orientation.Horizontal)
+sat_days_slider.setTickInterval(1)
+sat_days_slider.setTickPosition(3)
+sat_days_slider.setValue(10)
+sat_days_slider.setMinimum(1)
+sat_days_slider.setMaximum(10)
+sat_days_slider.move(10, 260)
+sat_days_slider.resize(200, 40)
+sat_days_slider.show()
+
+sat_mel_label = QLabel("Min Elev.", sat_window)
+sat_mel_label.move(10, 310)
+sat_mel_label.resize(100, 40)
+sat_mel_label.show()
+
+sat_mel_entry = QLineEdit("20", sat_window)
+sat_mel_entry.setValidator(QIntValidator())
+sat_mel_entry.setAlignment(Qt.AlignRight)
+sat_mel_entry.move(130, 310)
+sat_mel_entry.resize(80, 40)
+sat_mel_entry.show()
+
+sat_mel_slider = QSlider(sat_window)
+sat_mel_slider.setOrientation(Qt.Orientation.Horizontal)
+sat_mel_slider.setTickInterval(10)
+sat_mel_slider.setTickPosition(3)
+sat_mel_slider.setValue(20)
+sat_mel_slider.setMinimum(0)
+sat_mel_slider.setMaximum(90)
+sat_mel_slider.move(10, 360)
+sat_mel_slider.resize(200, 40)
+sat_mel_slider.show()
 
 sat_label = QLabel("", sat_window)
 sat_label.setAlignment(Qt.AlignTop)
@@ -392,7 +438,7 @@ sat_key = "87BT5R-78CLSF-NXGHQ8-4MOH"
 sat_id = [25338, 28654, 33591, 40069]
 sat_lat = 47.38
 sat_lng = 8.54
-sat_alt = 500
+sat_alt = 0
 sat_days = 10
 sat_mel = 20
 sat_tz = 2.0
@@ -685,7 +731,7 @@ def refreshSat():
 
     for i in range(len(sat_response)):
         for j in range(len(sat_response) - i):
-            sat_length[i] += len(sat_response[j]["passes"])
+            sat_length[i] += sat_response[j]["info"]["passescount"]
     sat_length = sat_length[::-1]
 
     sat_passes = [None] * sat_length[-1]
@@ -736,10 +782,14 @@ def refreshSat():
     sat_string = sat_string.replace("_", "&nbsp;")
 
     sat_transactions = sat_response[-1]["info"]["transactionscount"]
+    sat_passescount = [None] * len(sat_response)
+    for i in range(len(sat_response)):
+        sat_passescount[i] = sat_response[i]["info"]["passescount"]
+
     sat_refresh_button.setEnabled(True)
     sat_refresh_button.setFocus()
     updateText(sat_refresh_button, "Refresh")
-    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)} tx)")
+    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}, Transactions: {str(sat_transactions)}, Passes: {str(sat_passescount)}")
     updateText(sat_label, sat_string)
     sat_label.adjustSize()
     return
@@ -934,6 +984,40 @@ def setSatTz(value):
     sat_tz = float(value)
     return
 
+def setSatDays(value):
+    global sat_days
+    if value == "" or value == "." or value == "-":
+        value = 1
+    if int(value) > 10:
+        value = 10
+    if int(value) < 1:
+        value = 1
+    sat_days = int(value)
+    return
+
+def setSatDaysSlider(value):
+    global sat_days
+    sat_days = int(value)
+    updateText(sat_days_entry, str(int(value)))
+    return
+
+def setSatMel(value):
+    global sat_mel
+    if value == "" or value == "." or value == "-":
+        value = 0
+    if int(value) > 90:
+        value = 90
+    if int(value) < 0:
+        value = 0
+    sat_mel = int(value)
+    return
+
+def setSatMelSlider(value):
+    global sat_mel
+    sat_mel = int(value)
+    updateText(sat_mel_entry, str(int(value)))
+    return
+
 # --- Event listeners ---
 
 select_file_button.clicked.connect(selectFile)
@@ -960,10 +1044,14 @@ aspect_ratio_entry.textChanged.connect(setAspectRatio)
 sat_lat_entry.textChanged.connect(setSatLat)
 sat_lng_entry.textChanged.connect(setSatLng)
 sat_tz_entry.textChanged.connect(setSatTz)
+sat_days_entry.textChanged.connect(setSatDays)
+sat_mel_entry.textChanged.connect(setSatMel)
 
 resample_factor_slider.valueChanged.connect(setResampleFactor)
 brightness_slider.valueChanged.connect(setBrightnessSlider)
 contrast_slider.valueChanged.connect(setContrastSlider)
 offset_slider.valueChanged.connect(setOffsetSlider)
+sat_days_slider.valueChanged.connect(setSatDaysSlider)
+sat_mel_slider.valueChanged.connect(setSatMelSlider)
 
 app.exec_()
