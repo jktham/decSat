@@ -18,9 +18,9 @@ from skimage import color, transform
 # --- UI setup ---
 
 app = QApplication([])
-main_window = QWidget()
 
-main_window.resize(1800, 1100)
+main_window = QWidget()
+main_window.setFixedSize(1800, 1100)
 main_window.setWindowTitle("decodeGUI")
 main_window.show()
 
@@ -303,7 +303,7 @@ save_button.setEnabled(False)
 
 
 sat_window = QWidget()
-sat_window.resize(1400, 900)
+sat_window.setFixedSize(1400, 900)
 sat_window.setWindowTitle("Satellite passes")
 
 sat_refresh_button = QPushButton("Refresh", sat_window)
@@ -658,6 +658,92 @@ def saveImage():
 
 # --- Plots ---
 
+def showSat():
+    sat_window.show()
+    app.processEvents()
+    if sat_transactions == 0:
+        refreshSat()
+    return
+
+def refreshSat():
+    global sat_transactions
+    sat_response = [None] * len(sat_id)
+
+    sat_refresh_button.setEnabled(False)
+    sat_window.setFocus()
+    updateText(sat_refresh_button, "Refreshing")
+
+    for i in range(len(sat_id)):
+        try:
+            sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_id[i])}/{str(sat_lat)}/{str(sat_lng)}/{str(sat_alt)}/{str(sat_days)}/{str(sat_mel)}/&apiKey={sat_key}")
+        except requests.exceptions.RequestException as e:
+            updateText(sat_label, str(e))
+            return
+        sat_response[i] = sat_response[i].json()
+
+    sat_length = [0] * len(sat_response)
+
+    for i in range(len(sat_response)):
+        for j in range(len(sat_response) - i):
+            sat_length[i] += len(sat_response[j]["passes"])
+    sat_length = sat_length[::-1]
+
+    sat_passes = [None] * sat_length[-1]
+    for i in range(sat_length[-1]):
+        for j in range(len(sat_length)):
+            if j == 0:
+                c = 0
+            else:
+                c = sat_length[j-1]
+            if c <= i < sat_length[j]:
+                sat_passes[i] = sat_response[j]["passes"][i - c]
+                sat_passes[i]["index"] = i
+                sat_passes[i]["satname"] = sat_response[j]["info"]["satname"]
+
+    for i in range(len(sat_passes)):
+        sat_passes[i]["startUTC"] += int(3600 * sat_tz)
+        sat_passes[i]["maxUTC"] += int(3600 * sat_tz)
+        sat_passes[i]["endUTC"] += int(3600 * sat_tz)
+
+    sat_passes = sorted(sat_passes, key=lambda k: k["startUTC"])
+    
+    sat_names = [None] * len(sat_response)
+    for i in range(len(sat_response)):
+        sat_names[i] = sat_response[i]["info"]["satname"]
+    
+    sat_string = ""
+    for i in range(len(sat_passes)):
+        sat_string_date = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%Y-%m-%d')}"
+        sat_string_time = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['maxUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['endUTC']).strftime('%H:%M:%S')}"
+        sat_string_mel = f"{format(sat_passes[i]['maxEl'], '.2f')}"
+        sat_string_melc = f"{sat_passes[i]['maxAzCompass']}{'_' * (3 - len(sat_passes[i]['maxAzCompass']))}"
+        sat_string_name = f"{sat_passes[i]['satname']}{'_' * (len(max(sat_names, key=len)) - len(sat_passes[i]['satname']))}"
+        sat_string_az = f"{'_' * (6 - len(str(format(sat_passes[i]['startAz'], '.2f'))))}{format(sat_passes[i]['startAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['maxAz'], '.2f'))))}{format(sat_passes[i]['maxAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['endAz'], '.2f'))))}{format(sat_passes[i]['endAz'], '.2f')}"
+        
+        if math.cos(sat_passes[i]["startAz"] / 360 * 2*math.pi) < math.cos(sat_passes[i]["endAz"] / 360 * 2*math.pi):
+            sat_string_dir = "N"
+        else:
+            sat_string_dir = "S"
+
+        sat_string_alpha = (sat_passes[i]['maxEl']-45)/45
+        if sat_string_alpha < 0:
+            sat_string_alpha = 0
+        sat_string_color = (255, 255, 0, sat_string_alpha)
+
+        if datetime.utcfromtimestamp(sat_passes[i]['startUTC']).date() > datetime.utcfromtimestamp(sat_passes[i-1]['startUTC']).date():
+            sat_string += "<br>"
+        sat_string += f"{sat_string_date}__{sat_string_time}____{sat_string_name}____<span style=\"background-color: rgba{sat_string_color}\">{sat_string_mel}</span>_{sat_string_dir}_{sat_string_melc}____{sat_string_az}<br>"
+    sat_string = sat_string.replace("_", "&nbsp;")
+
+    sat_transactions = sat_response[-1]["info"]["transactionscount"]
+    sat_refresh_button.setEnabled(True)
+    sat_refresh_button.setFocus()
+    updateText(sat_refresh_button, "Refresh")
+    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)} tx)")
+    updateText(sat_label, sat_string)
+    sat_label.adjustSize()
+    return
+
 def plotWav():
     if processing_done:
         plt.ion()
@@ -738,90 +824,6 @@ def plotThermalImage():
         plt.colorbar()
         plt.title("Thermal image")
         plt.show()
-    return
-
-def showSat():
-    sat_window.show()
-    app.processEvents()
-    if sat_transactions == 0:
-        refreshSat()
-    return
-
-def refreshSat():
-    global sat_transactions
-    sat_response = [None] * len(sat_id)
-
-    sat_refresh_button.setEnabled(False)
-    updateText(sat_refresh_button, "Refreshing")
-
-    for i in range(len(sat_id)):
-        try:
-            sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_id[i])}/{str(sat_lat)}/{str(sat_lng)}/{str(sat_alt)}/{str(sat_days)}/{str(sat_mel)}/&apiKey={sat_key}")
-        except requests.exceptions.RequestException as e:
-            updateText(sat_label, str(e))
-            return
-        sat_response[i] = sat_response[i].json()
-
-    sat_length = [0] * len(sat_response)
-
-    for i in range(len(sat_response)):
-        for j in range(len(sat_response) - i):
-            sat_length[i] += len(sat_response[j]["passes"])
-    sat_length = sat_length[::-1]
-
-    sat_passes = [None] * sat_length[-1]
-    for i in range(sat_length[-1]):
-        for j in range(len(sat_length)):
-            if j == 0:
-                c = 0
-            else:
-                c = sat_length[j-1]
-            if c <= i < sat_length[j]:
-                sat_passes[i] = sat_response[j]["passes"][i - c]
-                sat_passes[i]["index"] = i
-                sat_passes[i]["satname"] = sat_response[j]["info"]["satname"]
-
-    for i in range(len(sat_passes)):
-        sat_passes[i]["startUTC"] += int(3600 * sat_tz)
-        sat_passes[i]["maxUTC"] += int(3600 * sat_tz)
-        sat_passes[i]["endUTC"] += int(3600 * sat_tz)
-
-    sat_passes = sorted(sat_passes, key=lambda k: k["startUTC"])
-    
-    sat_names = [None] * len(sat_response)
-    for i in range(len(sat_response)):
-        sat_names[i] = sat_response[i]["info"]["satname"]
-    
-    sat_string = ""
-    for i in range(len(sat_passes)):
-        sat_string_date = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%Y-%m-%d')}"
-        sat_string_time = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['maxUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['endUTC']).strftime('%H:%M:%S')}"
-        sat_string_mel = f"{format(sat_passes[i]['maxEl'], '.2f')}"
-        sat_string_melc = f"{sat_passes[i]['maxAzCompass']}{'_' * (3 - len(sat_passes[i]['maxAzCompass']))}"
-        sat_string_name = f"{sat_passes[i]['satname']}{'_' * (len(max(sat_names, key=len)) - len(sat_passes[i]['satname']))}"
-        sat_string_az = f"{'_' * (6 - len(str(format(sat_passes[i]['startAz'], '.2f'))))}{format(sat_passes[i]['startAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['maxAz'], '.2f'))))}{format(sat_passes[i]['maxAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['endAz'], '.2f'))))}{format(sat_passes[i]['endAz'], '.2f')}"
-        
-        if 90 < sat_passes[i]["startAz"] < 270:
-            sat_string_dir = "N"
-        else:
-            sat_string_dir = "S"
-
-        sat_string_alpha = (sat_passes[i]['maxEl']-45)/45
-        if sat_string_alpha < 0:
-            sat_string_alpha = 0
-        sat_string_color = (255, 255, 0, sat_string_alpha)
-
-        if datetime.utcfromtimestamp(sat_passes[i]['startUTC']).date() > datetime.utcfromtimestamp(sat_passes[i-1]['startUTC']).date():
-            sat_string += "<br>"
-        sat_string += f"{sat_string_date}__{sat_string_time}____{sat_string_name}____<span style=\"background-color: rgba{sat_string_color}\">{sat_string_mel}</span>_{sat_string_dir}_{sat_string_melc}____{sat_string_az}<br>"
-    sat_string = sat_string.replace("_", "&nbsp;")
-
-    sat_transactions = sat_response[-1]["info"]["transactionscount"]
-    sat_refresh_button.setEnabled(True)
-    updateText(sat_refresh_button, "Refresh")
-    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)} tx)")
-    updateText(sat_label, sat_string)
-    sat_label.adjustSize()
     return
 
 # --- UI updating ---
