@@ -7,6 +7,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
+from requests.api import request
 import scipy.io.wavfile as wav
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -302,7 +303,7 @@ save_button.setEnabled(False)
 
 
 sat_window = QWidget()
-sat_window.resize(900, 900)
+sat_window.resize(1300, 900)
 sat_window.setWindowTitle("Satellite passes")
 
 sat_refresh_button = QPushButton("Refresh", sat_window)
@@ -310,18 +311,18 @@ sat_refresh_button.move(10, 10)
 sat_refresh_button.resize(200, 40)
 sat_refresh_button.show()
 
-sat_refresh_label = QLabel("Last refreshed: ", sat_window)
+sat_refresh_label = QLabel("", sat_window)
 sat_refresh_label.move(220, 10)
 sat_refresh_label.resize(400, 40)
 sat_refresh_label.show()
 
-sat_label = QLabel("No data", sat_window)
+sat_label = QLabel("", sat_window)
 sat_label.setAlignment(Qt.AlignTop)
 sat_label.setWordWrap(True)
 sat_label.setFont(QFont('Courier'))
 sat_label.setTextFormat(Qt.RichText)
-sat_label.move(10, 60)
-sat_label.resize(880, 830)
+sat_label.move(10, 110)
+sat_label.resize(1280, 780)
 sat_label.show()
 
 sat_label_scroll = QScrollArea(sat_window)
@@ -329,8 +330,8 @@ sat_label_scroll.setWidgetResizable(True)
 sat_label_scroll.setWidget(sat_label)
 sat_label_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 sat_label_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-sat_label_scroll.move(10, 60)
-sat_label_scroll.resize(880, 830)
+sat_label_scroll.move(10, 110)
+sat_label_scroll.resize(1280, 780)
 
 # --- Processing ---
 
@@ -712,7 +713,11 @@ def refreshSat():
     sat_response_parse = [None] * len(sat_request_id)
 
     for i in range(len(sat_request_id)):
-        sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
+        try:
+            sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_request_id[i])}/{str(sat_request_lat)}/{str(sat_request_lng)}/{str(sat_request_alt)}/{str(sat_request_days)}/{str(sat_request_mel)}/&apiKey={sat_request_key}")
+        except requests.exceptions.RequestException as e:
+            updateText(sat_label, str(e))
+            return
         sat_response_parse[i] = sat_response[i].json()
 
     sat_length = [0] * len(sat_response_parse)
@@ -738,14 +743,17 @@ def refreshSat():
     
     sat_names = [None] * len(sat_response_parse)
     for i in range(len(sat_response_parse)):
-        sat_names[i] = sat_passes[i]["satname"]
-
+        sat_names[i] = sat_response_parse[i]["info"]["satname"]
+    
     sat_string = ""
     for i in range(len(sat_passes)):
-        sat_string_time = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%Y-%m-%d__%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['maxUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['endUTC']).strftime('%H:%M:%S')}"
+        sat_string_date = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%Y-%m-%d')}"
+        sat_string_time = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['maxUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['endUTC']).strftime('%H:%M:%S')}"
         sat_string_mel = f"{format(sat_passes[i]['maxEl'], '.2f')}"
-        sat_string_maz = f"{sat_passes[i]['maxAzCompass']}{'_' * (3 - len(sat_passes[i]['maxAzCompass']))}"
+        sat_string_melc = f"{sat_passes[i]['maxAzCompass']}{'_' * (3 - len(sat_passes[i]['maxAzCompass']))}"
         sat_string_name = f"{sat_passes[i]['satname']}{'_' * (len(max(sat_names, key=len)) - len(sat_passes[i]['satname']))}"
+        sat_string_az = f"{'_' * (6 - len(str(format(sat_passes[i]['startAz'], '.2f'))))}{format(sat_passes[i]['startAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['maxAz'], '.2f'))))}{format(sat_passes[i]['maxAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['endAz'], '.2f'))))}{format(sat_passes[i]['endAz'], '.2f')}"
+        
         sat_string_alpha = (sat_passes[i]['maxEl']-45)/45
         if sat_string_alpha < 0:
             sat_string_alpha = 0
@@ -753,11 +761,11 @@ def refreshSat():
 
         if datetime.utcfromtimestamp(sat_passes[i]['startUTC']).date() > datetime.utcfromtimestamp(sat_passes[i-1]['startUTC']).date():
             sat_string += "<br>"
-        sat_string += f"{sat_string_time}____{sat_string_name}____<span style=\"background-color: rgba{sat_string_color}\">{sat_string_mel}</span>_{sat_string_maz}____<br>"
+        sat_string += f"{sat_string_date}__{sat_string_time}____{sat_string_name}____<span style=\"background-color: rgba{sat_string_color}\">{sat_string_mel}</span>_{sat_string_melc}____{sat_string_az}<br>"
     sat_string = sat_string.replace("_", "&nbsp;")
 
     sat_transactions = sat_response_parse[-1]["info"]["transactionscount"]
-    updateText(sat_refresh_label, f"Last refreshed: {str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)})")
+    updateText(sat_refresh_label, f"{str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))} ({str(sat_transactions)})")
     updateText(sat_label, sat_string)
     sat_label.adjustSize()
     return
