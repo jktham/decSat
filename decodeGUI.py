@@ -375,7 +375,7 @@ sat_days_slider.move(10, 260)
 sat_days_slider.resize(200, 40)
 sat_days_slider.show()
 
-sat_mel_label = QLabel("Min Elev.", sat_window)
+sat_mel_label = QLabel("Min elev.", sat_window)
 sat_mel_label.move(10, 310)
 sat_mel_label.resize(100, 40)
 sat_mel_label.show()
@@ -397,6 +397,17 @@ sat_mel_slider.setMaximum(90)
 sat_mel_slider.move(10, 360)
 sat_mel_slider.resize(200, 40)
 sat_mel_slider.show()
+
+sat_highlight_label = QLabel("Highlight elev.", sat_window)
+sat_highlight_label.move(10, 410)
+sat_highlight_label.resize(180, 40)
+sat_highlight_label.show()
+
+sat_highlight_checkbox = QCheckBox(sat_window)
+sat_highlight_checkbox.setChecked(True)
+sat_highlight_checkbox.move(180, 410)
+sat_highlight_checkbox.resize(40, 40)
+sat_highlight_checkbox.show()
 
 sat_label = QLabel("", sat_window)
 sat_label.setAlignment(Qt.AlignTop)
@@ -773,6 +784,8 @@ def refreshSat():
 
         sat_string_alpha = (sat_passes[i]['maxEl']-45)/45
         if sat_string_alpha < 0:
+            sat_string_alpha = 0
+        if not sat_highlight_checkbox.isChecked():
             sat_string_alpha = 0
         sat_string_color = (255, 255, 0, sat_string_alpha)
 
