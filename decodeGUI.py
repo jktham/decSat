@@ -2,6 +2,7 @@ import json
 import math
 import time
 from datetime import datetime
+import wave
 
 import cv2
 import matplotlib.pyplot as plt
@@ -31,7 +32,7 @@ select_file_button.show()
 
 select_file_label = QLabel("", main_window)
 select_file_label.move(220, 10)
-select_file_label.resize(800, 40)
+select_file_label.resize(1300, 40)
 select_file_label.show()
 
 start_label = QLabel("Start", main_window)
@@ -532,7 +533,8 @@ def selectFile():
     global input_file
     input_file, check = QFileDialog.getOpenFileName(None, "Select File", "C:/Users/Jonas/projects/personal/matura/py/in", "WAV files (*.wav)")
     if check:
-        updateText(select_file_label, input_file)
+        sr, _ = wav.read(input_file)
+        updateText(select_file_label, f"{input_file}, {sr}Hz")
         process_button.setEnabled(True)
     else:
         updateText(select_file_label, "")
@@ -562,7 +564,7 @@ def crop(data, start, end, sample_rate):
 
 def highPassFilter(data):
     passes = 1
-    hpf = signal.firwin(101, 1200, fs=sample_rate, pass_zero=False)
+    hpf = signal.firwin(101, min(1200, sample_rate/2 - 1), fs=sample_rate, pass_zero=False)
     for i in range(passes):
         data = signal.lfilter(hpf, [1.0], data)
     return data
@@ -927,7 +929,7 @@ def setResampleFactor(value):
 def setResampleFactorSlider(value):
     global resample_factor
     resample_factor = 2 ** int(value)
-    updateText(resample_factor_entry, (str(2 ** int(value))))
+    updateText(resample_factor_entry, str(int(2 ** int(value))))
     return
 
 def setBrightness(value):
@@ -940,7 +942,7 @@ def setBrightness(value):
 def setBrightnessSlider(value):
     global brightness
     brightness = float(value/1000)
-    updateText(brightness_entry, (str(int(value)/10)))
+    updateText(brightness_entry, str(int(value)/10))
     return
 
 def setContrast(value):
@@ -953,7 +955,7 @@ def setContrast(value):
 def setContrastSlider(value):
     global contrast
     contrast = float(int(value)/1000)
-    updateText(contrast_entry, (str(int(value)/10)))
+    updateText(contrast_entry, str(int(value)/10))
     return
 
 def setOffset(value):
@@ -966,7 +968,7 @@ def setOffset(value):
 def setOffsetSlider(value):
     global offset
     offset = float(int(value)/1000)
-    updateText(offset_entry, (str(int(value)/10)))
+    updateText(offset_entry, str(int(value)/10))
     return
 
 def setAspectRatio(value):
@@ -1060,7 +1062,7 @@ sat_tz_entry.textChanged.connect(setSatTz)
 sat_days_entry.textChanged.connect(setSatDays)
 sat_mel_entry.textChanged.connect(setSatMel)
 
-resample_factor_slider.valueChanged.connect(setResampleFactor)
+resample_factor_slider.valueChanged.connect(setResampleFactorSlider)
 brightness_slider.valueChanged.connect(setBrightnessSlider)
 contrast_slider.valueChanged.connect(setContrastSlider)
 offset_slider.valueChanged.connect(setOffsetSlider)
