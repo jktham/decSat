@@ -230,38 +230,44 @@ plot_wav_button.resize(200, 40)
 plot_wav_button.show()
 plot_wav_button.setEnabled(False)
 
+plot_wav_envelope_button = QPushButton("Plot wav envelope", main_window)
+plot_wav_envelope_button.move(1590, 110)
+plot_wav_envelope_button.resize(200, 40)
+plot_wav_envelope_button.show()
+plot_wav_envelope_button.setEnabled(False)
+
 plot_wav_fourier_button = QPushButton("Plot wav fourier", main_window)
-plot_wav_fourier_button.move(1590, 110)
+plot_wav_fourier_button.move(1590, 160)
 plot_wav_fourier_button.resize(200, 40)
 plot_wav_fourier_button.show()
 plot_wav_fourier_button.setEnabled(False)
 
 plot_spectrogram_button = QPushButton("Plot spectrogram", main_window)
-plot_spectrogram_button.move(1590, 160)
+plot_spectrogram_button.move(1590, 210)
 plot_spectrogram_button.resize(200, 40)
 plot_spectrogram_button.show()
 plot_spectrogram_button.setEnabled(False)
 
 plot_image_button = QPushButton("Plot image", main_window)
-plot_image_button.move(1590, 210)
+plot_image_button.move(1590, 260)
 plot_image_button.resize(200, 40)
 plot_image_button.show()
 plot_image_button.setEnabled(False)
 
 plot_image_fourier_pre_button = QPushButton("Plot fourier (pre)", main_window)
-plot_image_fourier_pre_button.move(1590, 260)
+plot_image_fourier_pre_button.move(1590, 310)
 plot_image_fourier_pre_button.resize(200, 40)
 plot_image_fourier_pre_button.show()
 plot_image_fourier_pre_button.setEnabled(False)
 
 plot_image_fourier_post_button = QPushButton("Plot fourier (post)", main_window)
-plot_image_fourier_post_button.move(1590, 310)
+plot_image_fourier_post_button.move(1590, 360)
 plot_image_fourier_post_button.resize(200, 40)
 plot_image_fourier_post_button.show()
 plot_image_fourier_post_button.setEnabled(False)
 
 plot_thermal_image_button = QPushButton("Plot thermal image", main_window)
-plot_thermal_image_button.move(1590, 360)
+plot_thermal_image_button.move(1590, 410)
 plot_thermal_image_button.resize(200, 40)
 plot_thermal_image_button.show()
 plot_thermal_image_button.setEnabled(False)
@@ -469,6 +475,7 @@ def decode():
     process_button.setEnabled(False)
     updateText(process_button, "Processing")
     plot_wav_button.setEnabled(False)
+    plot_wav_envelope_button.setEnabled(False)
     plot_wav_fourier_button.setEnabled(False)
     plot_spectrogram_button.setEnabled(False)
     plot_image_button.setEnabled(False)
@@ -520,6 +527,7 @@ def decode():
     process_button.setEnabled(True)
     updateText(process_button, "Process file")
     plot_wav_button.setEnabled(True)
+    plot_wav_envelope_button.setEnabled(True)
     plot_wav_fourier_button.setEnabled(True)
     plot_spectrogram_button.setEnabled(True)
     plot_image_button.setEnabled(True)
@@ -636,6 +644,13 @@ def resync(image):
                     bright_sum += image[y, int(x+k+width/2), 0]
                 else:
                     bright_sum += image[y, int(x+k-width/2), 0]
+
+            # TODO: Implement with np.sum
+            # k = 130
+            # if x+k < width:
+            #     dark_sum = np.sum(image[y, x:x+k, 0])
+            # else:
+            #     dark_sum = np.sum(image[y, x:x-k, 0])
 
             if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
                 sync_pos[y] = x
@@ -814,6 +829,16 @@ def plotWav():
         plt.ion()
         plt.figure(0, figsize=(24, 8))
         plt.plot(data)
+        plt.xlabel("Sample")
+        plt.ylabel("Amplitude")
+        plt.title(f"{input_file}, {str(original_sample_rate)}Hz, ({str(sample_rate)}), {str(start)}-{str(end)}s")
+        plt.show()
+    return
+
+def plotWavEnvelope():
+    if processing_done:
+        plt.ion()
+        plt.figure(0, figsize=(24, 8))
         plt.plot(amplitude)
         plt.axhline(y=average_amplitude, color='r', linestyle='-')
         plt.xlabel("Sample")
@@ -1039,6 +1064,7 @@ select_file_button.clicked.connect(selectFile)
 process_button.clicked.connect(decode)
 save_button.clicked.connect(saveImage)
 plot_wav_button.clicked.connect(plotWav)
+plot_wav_envelope_button.clicked.connect(plotWavEnvelope)
 plot_wav_fourier_button.clicked.connect(plotWavFourier)
 plot_spectrogram_button.clicked.connect(plotSpectrogram)
 plot_image_button.clicked.connect(plotImage)
