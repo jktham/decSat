@@ -459,7 +459,7 @@ sat_lng = 8.54
 sat_alt = 0
 sat_days = 10
 sat_mel = 20
-sat_tz = 2.0
+sat_tz = 1.0
 sat_transactions = 0
 
 processing_done = False
@@ -570,6 +570,7 @@ def crop(data, start, end, sample_rate):
         data = data[startSample:endSample]
     return data
 
+# TODO: Fix for low samplerate
 def highPassFilter(data):
     passes = 1
     hpf = signal.firwin(101, min(1200, sample_rate/2 - 1), fs=sample_rate, pass_zero=False)
@@ -635,24 +636,11 @@ def resync(image):
             dark_sum = 0
             bright_sum = 0
 
-            for k in range(130):
-                if x+k < width:
-                    dark_sum += image[y, x+k, 0]
-                else:
-                    dark_sum += image[y, x-k, 0]
-                if x+k+width/2 < width:
-                    bright_sum += image[y, int(x+k+width/2), 0]
-                else:
-                    bright_sum += image[y, int(x+k-width/2), 0]
+            k = int(width/45)
+            dark_sum = np.sum(np.take(image[y], range(x, x+k), axis=0, mode="wrap"), axis=0)[0]
+            bright_sum = np.sum(np.take(image[y], range(int(x+width/2), int(x+k+width/2)), axis=0, mode="wrap"), axis=0)[0]
 
-            # TODO: Implement with np.sum
-            # k = 130
-            # if x+k < width:
-            #     dark_sum = np.sum(image[y, x:x+k, 0])
-            # else:
-            #     dark_sum = np.sum(image[y, x:x-k, 0])
-
-            if (dark_sum < 130 * 40 and bright_sum > 130 * 240): # or (dark_sum > 140 * 220 and bright_sum > 140 * 220) or (dark_sum < 140 * 50 and bright_sum < 140 * 50):
+            if (dark_sum < k * 40 and bright_sum > k * 240): # or (dark_sum > k * 220 and bright_sum > k * 220) or (dark_sum < k * 50 and bright_sum < k * 50):
                 sync_pos[y] = x
                 count_pos += 1
                 updateText(process_label, f"Resyncing image ({y}/{int(height)}, s {int(sync_pos[y])}, {int(count_pos)})")
@@ -664,11 +652,11 @@ def resync(image):
             updateText(process_label, f"Resyncing image ({y}/{int(height)}, f {int(sync_pos[y])}, {int(count_pos)})")
 
     for y in range(height):
-        image[y] = np.roll(image[y], int(-sync_pos[y]+84), axis=0)
-        side_a[y] = np.sum(image[y, :2755, 0])
-        side_b[y] = np.sum(image[y, 2756:, 0])
+        image[y] = np.roll(image[y], int(-sync_pos[y]+width/65), axis=0)
+        side_a[y] = np.sum(image[y, :int(width/2), 0])
+        side_b[y] = np.sum(image[y, int(width/2+1):, 0])
         if side_a[y] > side_b[y]:
-            image[y] = np.roll(image[y], 2756, axis=0)
+            image[y] = np.roll(image[y], int(width/2), axis=0)
     return image
 
 def fourierFilter(image):
