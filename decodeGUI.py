@@ -352,7 +352,7 @@ sat_tz_label.move(10, 160)
 sat_tz_label.resize(100, 40)
 sat_tz_label.show()
 
-sat_tz_entry = QLineEdit("2.0", sat_window)
+sat_tz_entry = QLineEdit("1.0", sat_window)
 sat_tz_entry.setValidator(QDoubleValidator())
 sat_tz_entry.setAlignment(Qt.AlignRight)
 sat_tz_entry.move(130, 160)
@@ -740,6 +740,9 @@ def refreshSat():
             sat_response[i] = requests.get(f"https://api.n2yo.com/rest/v1/satellite/radiopasses/{str(sat_id[i])}/{str(sat_lat)}/{str(sat_lng)}/{str(sat_alt)}/{str(sat_days)}/{str(sat_mel)}/&apiKey={sat_key}")
         except requests.exceptions.RequestException as e:
             updateText(sat_label, str(e))
+            sat_refresh_button.setEnabled(True)
+            sat_refresh_button.setFocus()
+            updateText(sat_refresh_button, "Refresh")
             return
         sat_response[i] = sat_response[i].json()
 
@@ -777,7 +780,7 @@ def refreshSat():
     for i in range(len(sat_passes)):
         sat_string_date = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%Y-%m-%d')}"
         sat_string_time = f"{datetime.utcfromtimestamp(sat_passes[i]['startUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['maxUTC']).strftime('%H:%M:%S')}_{datetime.utcfromtimestamp(sat_passes[i]['endUTC']).strftime('%H:%M:%S')}"
-        sat_string_mel = f"{format(sat_passes[i]['maxEl'], '.2f')}"
+        sat_string_mel = f"{'_' * (5 - len(str(format(sat_passes[i]['maxEl'], '.2f'))))}{format(sat_passes[i]['maxEl'], '.2f')}"
         sat_string_melc = f"{sat_passes[i]['maxAzCompass']}{'_' * (3 - len(sat_passes[i]['maxAzCompass']))}"
         sat_string_name = f"{sat_passes[i]['satname']}{'_' * (len(max(sat_names, key=len)) - len(sat_passes[i]['satname']))}"
         sat_string_az = f"{'_' * (6 - len(str(format(sat_passes[i]['startAz'], '.2f'))))}{format(sat_passes[i]['startAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['maxAz'], '.2f'))))}{format(sat_passes[i]['maxAz'], '.2f')}__{'_' * (6 - len(str(format(sat_passes[i]['endAz'], '.2f'))))}{format(sat_passes[i]['endAz'], '.2f')}"
