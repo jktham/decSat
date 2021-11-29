@@ -196,6 +196,16 @@ resync_checkbox.move(180, 710)
 resync_checkbox.resize(40, 40)
 resync_checkbox.show()
 
+get_telemetry_label = QLabel("Get telemetry", main_window)
+get_telemetry_label.move(10, 760)
+get_telemetry_label.resize(160, 40)
+get_telemetry_label.show()
+
+get_telemetry_checkbox = QCheckBox(main_window)
+get_telemetry_checkbox.setChecked(False)
+get_telemetry_checkbox.move(180, 760)
+get_telemetry_checkbox.resize(40, 40)
+get_telemetry_checkbox.show()
 
 process_button = QPushButton("Process file", main_window)
 process_button.move(10, 1050)
@@ -518,6 +528,12 @@ def decode():
         image = fourierFilter(image)
         fourier_done = True
 
+    if get_telemetry_checkbox.isChecked():
+        updateText(process_label, "Getting telemetry")
+        telemetry_wedges = getTelemetry(image)
+        for i in range(16):
+            print(telemetry_wedges[0][i])
+
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
     processing_done = True
 
@@ -643,13 +659,13 @@ def resync(image):
             if (dark_sum < k * 40 and bright_sum > k * 240): # or (dark_sum > k * 220 and bright_sum > k * 220) or (dark_sum < k * 50 and bright_sum < k * 50):
                 sync_pos[y] = x
                 count_pos += 1
-                updateText(process_label, f"Resyncing image ({y}/{int(height)}, s {int(sync_pos[y])}, {int(count_pos)})")
+                updateText(process_label, f"Resyncing image ({y}/{int(height)}, {int(sync_pos[y])}, {int(count_pos)}, success)")
                 break
 
         if sync_pos[y] == 0:
             if sync_pos[y-1] > 0:
                 sync_pos[y] = sync_pos[y-1]
-            updateText(process_label, f"Resyncing image ({y}/{int(height)}, f {int(sync_pos[y])}, {int(count_pos)})")
+            updateText(process_label, f"Resyncing image ({y}/{int(height)}, {int(sync_pos[y])}, {int(count_pos)}, fallback)")
 
     for y in range(height):
         image[y] = np.roll(image[y], int(-sync_pos[y]+width/65), axis=0)
@@ -658,6 +674,50 @@ def resync(image):
         if side_a[y] > side_b[y]:
             image[y] = np.roll(image[y], int(width/2), axis=0)
     return image
+
+def getTelemetry(image):
+    telemetry = np.zeros((2, height))
+    difference = np.zeros((2, height))
+    max_index = np.zeros(2)
+    telemetry_wedges = np.zeros((2, 16))
+    telemetry_edges = np.zeros((2, 8))
+    edge_index = np.zeros(2)
+    b = width/551
+
+    for y in range(10, height-10):
+        telemetry[0][y] = np.sum(image[y, int(width/2.094+b):int(width/2.003-b), 0]) / (int(width/2.003-b) - int(width/2.094+b))
+        telemetry[1][y] = np.sum(image[y, int(width/1.023+b):int(width/1.001-b), 0]) / (int(width/1.001-b) - int(width/1.023+b))
+    
+    for c in range(2):
+
+        for i in range(8):
+            for j in range(len(telemetry[c]) // 8):
+                telemetry_edges[c][i] += abs(telemetry[c][i+8*j] - telemetry[c][i+1+8*j])
+        
+        edge_index[c] = np.argmax(abs(telemetry_edges[c]))
+
+        for i in range(16):
+            for j in range(len(telemetry[c]) // 128):
+                telemetry_wedges[c][i] += np.sum(telemetry[c][int(edge_index[c]) + i*8 + j*128 : int(edge_index[c]) + i*8+8 + j*128])
+
+            telemetry_wedges[c][i] /= 8 * (len(telemetry[c]) // 128)
+
+        # for y in range(len(telemetry[c])):
+        #     difference[c][y] = telemetry[c][y-1] - telemetry[c][y]
+        #     difference[1][y] = telemetry[1][y-1] - telemetry[1][y]
+        
+        # max_index[c] = np.argmax(abs(difference[c]))
+
+        # telemetry[c] = np.roll(telemetry[c], int(max_index[c])*-1, axis=0)
+
+        # k = 0
+        # for i in range(16):
+        #     telemetry_wedges[c][i] += np.sum(telemetry[c][i*8:i*8+8])
+        
+        # for i in range(16):
+        #     telemetry_wedges[c][i] /= 8
+    
+    return telemetry_wedges
 
 def fourierFilter(image):
     global image_fourier_pre, fourier_done
