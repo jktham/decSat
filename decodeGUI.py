@@ -282,6 +282,10 @@ plot_thermal_image_button.resize(200, 40)
 plot_thermal_image_button.show()
 plot_thermal_image_button.setEnabled(False)
 
+telemetry_label = QLabel("", main_window)
+telemetry_label.move(1590, 460)
+telemetry_label.resize(200, 480)
+telemetry_label.show()
 
 height_correction_checkbox = QCheckBox(main_window)
 height_correction_checkbox.setChecked(True)
@@ -482,6 +486,7 @@ def decode():
     time_start = time.time()    
 
     updateText(info_label, "")
+    updateText(telemetry_label, "")
     process_button.setEnabled(False)
     updateText(process_button, "Processing")
     plot_wav_button.setEnabled(False)
@@ -531,8 +536,8 @@ def decode():
     if get_telemetry_checkbox.isChecked():
         updateText(process_label, "Getting telemetry")
         telemetry_wedges = getTelemetry(image)
-        for i in range(16):
-            print(telemetry_wedges[0][i])
+        telemetry_string = "\n".join([f"{str(i)}: {str(round(telemetry_wedges[0][i], 2))}, {str(round(telemetry_wedges[1][i], 2))}" for i in range(16)])
+        updateText(telemetry_label, "Telemetry (A, B):\n" + telemetry_string)
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
     processing_done = True
@@ -677,8 +682,6 @@ def resync(image):
 
 def getTelemetry(image):
     telemetry = np.zeros((2, height))
-    difference = np.zeros((2, height))
-    max_index = np.zeros(2)
     telemetry_wedges = np.zeros((2, 16))
     telemetry_edges = np.zeros((2, 8))
     edge_index = np.zeros(2)
@@ -692,30 +695,16 @@ def getTelemetry(image):
 
         for i in range(8):
             for j in range(len(telemetry[c]) // 8):
-                telemetry_edges[c][i] += abs(telemetry[c][i+8*j] - telemetry[c][i+1+8*j])
+                telemetry_edges[c][i] += abs(telemetry[c][i-1+8*j] - telemetry[c][i+8*j])
         
         edge_index[c] = np.argmax(abs(telemetry_edges[c]))
 
         for i in range(16):
             for j in range(len(telemetry[c]) // 128):
                 telemetry_wedges[c][i] += np.sum(telemetry[c][int(edge_index[c]) + i*8 + j*128 : int(edge_index[c]) + i*8+8 + j*128])
-
             telemetry_wedges[c][i] /= 8 * (len(telemetry[c]) // 128)
 
-        # for y in range(len(telemetry[c])):
-        #     difference[c][y] = telemetry[c][y-1] - telemetry[c][y]
-        #     difference[1][y] = telemetry[1][y-1] - telemetry[1][y]
-        
-        # max_index[c] = np.argmax(abs(difference[c]))
-
-        # telemetry[c] = np.roll(telemetry[c], int(max_index[c])*-1, axis=0)
-
-        # k = 0
-        # for i in range(16):
-        #     telemetry_wedges[c][i] += np.sum(telemetry[c][i*8:i*8+8])
-        
-        # for i in range(16):
-        #     telemetry_wedges[c][i] /= 8
+        telemetry_wedges[c] = np.roll(telemetry_wedges[c], np.argmax(telemetry_wedges[c]) + 15)
     
     return telemetry_wedges
 
