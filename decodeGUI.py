@@ -1,20 +1,16 @@
-import json
 import math
 import time
 from datetime import datetime
-import wave
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
-from requests.api import request
 import scipy.io.wavfile as wav
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from scipy import signal
-from skimage import color, transform
+from skimage import transform
 
 # --- UI setup ---
 
@@ -767,8 +763,6 @@ def saveImage():
                 
     return
 
-# --- Plots ---
-
 def showSat():
     sat_window.show()
     app.processEvents()
@@ -863,6 +857,8 @@ def refreshSat():
     updateText(sat_label, sat_string)
     sat_label.adjustSize()
     return
+
+# --- Plots ---
 
 def plotWav():
     if processing_done:
