@@ -532,7 +532,7 @@ def decode():
     if get_telemetry_checkbox.isChecked():
         updateText(process_label, "Getting telemetry")
         telemetry_wedges = getTelemetry(image)
-        telemetry_string = "\n".join([f"{str(i)}: {str(round(telemetry_wedges[0][i], 2))}, {str(round(telemetry_wedges[1][i], 2))}" for i in range(16)])
+        telemetry_string = "\n".join([f"{str(i+1)}: {str(round(telemetry_wedges[0][i], 2))}, {str(round(telemetry_wedges[1][i], 2))}" for i in range(16)])
         updateText(telemetry_label, "Telemetry (A, B):\n" + telemetry_string)
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
@@ -574,6 +574,13 @@ def resample(data, sample_rate, resample_factor, resample_rate):
     # coef = 20800 / sample_rate
     # samples = int(coef * len(data))
     # data = signal.resample(data, samples)
+    # sample_rate = 20800
+
+
+    # data = signal.resample(data, int(data.shape[0] / sample_rate * 20800))
+    # decimation_factor = 11025/4160
+    # interpolation_factor = 4160/11025
+
     # sample_rate = 20800
 
     data = data[::resample_factor]
@@ -677,15 +684,16 @@ def resync(image):
     return image
 
 def getTelemetry(image):
-    telemetry = np.zeros((2, height))
+    telemetry = np.zeros((2, height-20))
     telemetry_wedges = np.zeros((2, 16))
     telemetry_edges = np.zeros((2, 8))
     edge_index = np.zeros(2)
+    wedge_difference = np.zeros((2, 16))
     b = width/551
 
     for y in range(10, height-10):
-        telemetry[0][y] = np.sum(image[y, int(width/2.094+b):int(width/2.003-b), 0]) / (int(width/2.003-b) - int(width/2.094+b))
-        telemetry[1][y] = np.sum(image[y, int(width/1.023+b):int(width/1.001-b), 0]) / (int(width/1.001-b) - int(width/1.023+b))
+        telemetry[0][y-10] = np.sum(image[y, int(width/2.094+b):int(width/2.003-b), 0]) / (int(width/2.003-b) - int(width/2.094+b))
+        telemetry[1][y-10] = np.sum(image[y, int(width/1.023+b):int(width/1.001-b), 0]) / (int(width/1.001-b) - int(width/1.023+b))
     
     for c in range(2):
 
@@ -700,7 +708,10 @@ def getTelemetry(image):
                 telemetry_wedges[c][i] += np.sum(telemetry[c][int(edge_index[c]) + i*8 + j*128 : int(edge_index[c]) + i*8+8 + j*128])
             telemetry_wedges[c][i] /= 8 * (len(telemetry[c]) // 128)
 
-        telemetry_wedges[c] = np.roll(telemetry_wedges[c], np.argmax(telemetry_wedges[c]) + 15)
+        for i in range(16):
+            wedge_difference[c][i] = abs(telemetry_wedges[c][i-1] - telemetry_wedges[c][i])
+
+        telemetry_wedges[c] = np.roll(telemetry_wedges[c], np.argmax(wedge_difference[c])*-1+8)
     
     return telemetry_wedges
 
