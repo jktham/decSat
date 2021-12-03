@@ -531,8 +531,8 @@ def decode():
 
     if get_telemetry_checkbox.isChecked():
         updateText(process_label, "Getting telemetry")
-        telemetry_wedges = getTelemetry(image)
-        telemetry_string = "\n".join([f"{str(i+1)}: {str(round(telemetry_wedges[0][i], 2))}, {str(round(telemetry_wedges[1][i], 2))}" for i in range(16)])
+        telemetry_blocks = getTelemetry(image)
+        telemetry_string = "\n".join([f"{str(i+1)}: {str(round(telemetry_blocks[0][i], 2))}, {str(round(telemetry_blocks[1][i], 2))}" for i in range(16)])
         updateText(telemetry_label, "Telemetry (A, B):\n" + telemetry_string)
 
     updateText(process_label, f"Done ({str(round(time.time() - time_start, 2))}s)")
@@ -685,10 +685,11 @@ def resync(image):
 
 def getTelemetry(image):
     telemetry = np.zeros((2, height-20))
-    telemetry_wedges = np.zeros((2, 16))
+    telemetry_blocks = np.zeros((2, 16))
     telemetry_edges = np.zeros((2, 8))
+    block_difference = np.zeros((2, 16))
     edge_index = np.zeros(2)
-    wedge_difference = np.zeros((2, 16))
+    block_index = np.zeros(2)
     b = width/551
 
     for y in range(10, height-10):
@@ -705,15 +706,17 @@ def getTelemetry(image):
 
         for i in range(16):
             for j in range(len(telemetry[c]) // 128):
-                telemetry_wedges[c][i] += np.sum(telemetry[c][int(edge_index[c]) + i*8 + j*128 : int(edge_index[c]) + i*8+8 + j*128])
-            telemetry_wedges[c][i] /= 8 * (len(telemetry[c]) // 128)
+                telemetry_blocks[c][i] += np.sum(telemetry[c][int(edge_index[c]) + i*8 + j*128 : int(edge_index[c]) + i*8+8 + j*128])
+            telemetry_blocks[c][i] /= 8 * (len(telemetry[c]) // 128)
 
         for i in range(16):
-            wedge_difference[c][i] = abs(telemetry_wedges[c][i-1] - telemetry_wedges[c][i])
+            block_difference[c][i] = abs(telemetry_blocks[c][i-1] - telemetry_blocks[c][i])
 
-        telemetry_wedges[c] = np.roll(telemetry_wedges[c], np.argmax(wedge_difference[c])*-1+8)
+        block_index[c] = np.argmax(block_difference)
+
+        telemetry_blocks[c] = np.roll(telemetry_blocks[c], block_index*-1+8)
     
-    return telemetry_wedges
+    return telemetry_blocks
 
 def fourierFilter(image):
     global image_fourier_pre, fourier_done
@@ -955,10 +958,12 @@ def plotThermalImage():
         # thermal_image = (colormap(image) * 2**16).astype(np.uint16)[:,:,:3]
         # thermal_image = cv2.cvtColor(thermal_image, cv2.COLOR_RGB2BGR)
         # # thermal_image = cv2.applyColorMap(image, cv2.COLORMAP_JET)
-        thermal_image = image[:,:,0]
-        plt.imshow(thermal_image, aspect=thermal_image.shape[1] / thermal_image.shape[0] * 0.8, cmap="jet")
-        plt.clim(100, 255)
-        plt.colorbar()
+        thermal_image = np.zeros((height, width))
+        for y in range(height):
+            for x in range(width):
+                p = image[y, x, 0]
+                thermal_image[y, x] = 61.44593 - 1.71007*p + 0.05733367*p**2 - 0.0007629319*p**3 + 0.000004015719*p**4 - 7.377199e-9*p**5
+        plt.imshow(thermal_image, aspect=thermal_image.shape[1] / thermal_image.shape[0] * 0.8)
         plt.title("Thermal image")
         plt.show()
     return
