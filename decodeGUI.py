@@ -13,6 +13,7 @@ from scipy import signal
 from skimage import transform
 
 # --- UI setup ---
+plt.rcParams["font.size"] = "16"
 
 app = QApplication([])
 
@@ -714,7 +715,7 @@ def getTelemetry(image):
 
         block_index[c] = np.argmax(block_difference)
 
-        telemetry_blocks[c] = np.roll(telemetry_blocks[c], block_index*-1+8)
+        telemetry_blocks[c] = np.roll(telemetry_blocks[c], int(block_index[c]*-1+8))
     
     return telemetry_blocks
 
